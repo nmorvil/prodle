@@ -218,10 +218,26 @@ def proxy_team_image():
         return jsonify({'error': 'URL parameter is required'}), 400
     
     try:
+        # Enhanced headers to mimic a real browser request
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'image',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'cross-site'
+        }
+        
+        # Add referer if it's a PandaScore URL
+        if 'pandascore' in image_url.lower():
+            headers['Referer'] = 'https://pandascore.co/'
+        
         # Fetch the image from the original URL
-        response = requests.get(image_url, timeout=10, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
+        response = requests.get(image_url, timeout=15, headers=headers, allow_redirects=True)
         
         if response.status_code == 200:
             # Return the image with appropriate headers
@@ -234,9 +250,12 @@ def proxy_team_image():
                 }
             )
         else:
-            return jsonify({'error': 'Failed to fetch image'}), response.status_code
+            # Log the error for debugging
+            print(f"Image proxy error: {response.status_code} for URL: {image_url}")
+            return jsonify({'error': f'Failed to fetch image: {response.status_code}'}), response.status_code
             
     except requests.RequestException as e:
+        print(f"Image proxy request exception: {str(e)} for URL: {image_url}")
         return jsonify({'error': f'Request failed: {str(e)}'}), 500
 
 
