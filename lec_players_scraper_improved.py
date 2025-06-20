@@ -119,7 +119,7 @@ def fetch_lec_players_improved():
         tournaments = site.cargo_client.query(
             tables="Tournaments",
             fields="OverviewPage, Name, Year",
-            where="League = 'LoL EMEA Championship' AND Year = 2025 AND Name LIKE '%Spring%'",
+            where="Name='LFL 2025 Spring' OR Name ='LCK 2025 Rounds 1-2' OR Name='LEC 2025 Spring'",
             order_by="Year DESC",
             limit=5
         )

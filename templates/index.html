@@ -408,7 +408,7 @@
             const teamCell = createCell('Équipe', '', result.team.status);
             if (result.team.logo && result.team.logo.trim() !== '') {
                 const teamLogo = document.createElement('img');
-                teamLogo.src = result.team.logo;
+                teamLogo.src = `/api/proxy/team-image?url=${encodeURIComponent(result.team.logo)}`;
                 teamLogo.className = 'team-logo';
                 teamLogo.alt = result.team.value;
                 teamLogo.onerror = () => handleImageError(teamLogo, result.team.value, 70, 70);
@@ -462,6 +462,7 @@
 
             // Champion
             const championCell = createCell('Champion', '', result.champion.status);
+            championCell.title = 'Champion le plus joué au printemps';
             if (result.champion.image && result.champion.image.trim() !== '') {
                 const championImg = document.createElement('img');
                 championImg.src = result.champion.image;
