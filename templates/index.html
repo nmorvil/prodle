@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoL Wordle - Devinez le Joueur Pro !</title>
+    <style>
+        @font-face {
+            font-family: 'ArticulatCF';
+            src: url('/static/ArticulatCF.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'ArticulatCF', 'Arial', sans-serif;
+            background-image: url('/static/bg_gtlv2.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+        }
+
+
+        h1 {
+            color: white;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 3em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .input-container {
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        #playerInput {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #c89b3c;
+            border-radius: 8px;
+            background-color: #1e2328;
+            color: #fff;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #playerInput:focus {
+            border-color: #f0e6d2;
+        }
+
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: #1e2328;
+            border: 2px solid #c89b3c;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 10;
+        }
+
+        .suggestion {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .suggestion:hover {
+            background-color: #2a2d33;
+        }
+
+        .suggestion-team {
+            font-size: 14px;
+            color: #8a8a8a;
+        }
+
+        .guesses-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .guess-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .guess-cell {
+            background-color: #1e2328;
+            border: 2px solid #3f4145;
+            border-radius: 8px;
+            padding: 15px;
+            padding-top: 35px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 120px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .guess-cell.correct {
+            background-color: #538d4e;
+            border-color: #538d4e;
+            animation: correctPop 0.5s ease-out;
+        }
+
+        .guess-cell.partial {
+            background-color: #b59f3b;
+            border-color: #b59f3b;
+        }
+
+        .guess-cell.incorrect {
+            background-color: #3a3a3c;
+            border-color: #3a3a3c;
+        }
+
+        @keyframes correctPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .cell-label {
+            font-size: 16px;
+            color: #ffffff;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            text-align: center;
+        }
+
+        .cell-value {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .team-logo {
+            width: 70px;
+            height: 70px;
+            object-fit: contain;
+            background-color: transparent;
+            border-radius: 4px;
+        }
+
+        .champion-img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: #2a2d33;
+        }
+
+        .image-fallback {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #2a2d33;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .flag {
+            font-size: 30px;
+        }
+
+        .direction-arrow {
+            font-size: 20px;
+            margin-left: 5px;
+        }
+
+        .attempts-counter {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #c89b3c;
+            font-size: 18px;
+        }
+
+        .message {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .message.win {
+            background-color: #538d4e;
+            display: block;
+            animation: winMessage 0.5s ease-out;
+        }
+
+        .message.lose {
+            background-color: #b59f3b;
+            display: block;
+        }
+
+        @keyframes winMessage {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Confetti styles */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background-color: #f0f;
+            position: absolute;
+            animation: confetti-fall 3s linear;
+        }
+
+        @keyframes confetti-fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>PRODLE</h1>
+    <div class="game-container">
+        <div class="attempts-counter">
+            Tentatives: <span id="attemptsCount">0</span>/10
+        </div>
+
+        <div class="input-container">
+            <input
+                type="text"
+                id="playerInput"
+                placeholder="Entrez le nom du joueur..."
+                autocomplete="off"
+            />
+            <div class="suggestions" id="suggestions"></div>
+        </div>
+
+        <div class="guesses-container" id="guessesContainer"></div>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        const playerInput = document.getElementById('playerInput');
+        const suggestions = document.getElementById('suggestions');
+        const guessesContainer = document.getElementById('guessesContainer');
+        const attemptsCount = document.getElementById('attemptsCount');
+        const message = document.getElementById('message');
+
+        let attempts = 0;
+        const maxAttempts = 10;
+        let gameWon = false;
+
+        // Handle input and suggestions
+        playerInput.addEventListener('input', async (e) => {
+            const query = e.target.value.trim();
+
+            if (query.length < 1) {
+                suggestions.style.display = 'none';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/suggestions?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data.length > 0) {
+                    suggestions.innerHTML = data.map(player => `
+                        <div class="suggestion" data-username="${player.username}">
+                            <span>${player.username}</span>
+                            <span class="suggestion-team">${player.team}</span>
+                        </div>
+                    `).join('');
+                    suggestions.style.display = 'block';
+                } else {
+                    suggestions.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching suggestions:', error);
+            }
+        });
+
+        // Handle suggestion click
+        suggestions.addEventListener('click', (e) => {
+            const suggestion = e.target.closest('.suggestion');
+            if (suggestion) {
+                const username = suggestion.dataset.username;
+                playerInput.value = username;
+                suggestions.style.display = 'none';
+                makeGuess(username);
+            }
+        });
+
+        // Handle enter key
+        playerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const username = playerInput.value.trim();
+                if (username) {
+                    makeGuess(username);
+                }
+            }
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.input-container')) {
+                suggestions.style.display = 'none';
+            }
+        });
+
+        async function makeGuess(username) {
+            if (gameWon || attempts >= maxAttempts) return;
+
+            try {
+                const response = await fetch('/api/guess', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username }),
+                });
+
+                if (!response.ok) {
+                    alert('Joueur non trouvé !');
+                    return;
+                }
+
+                const result = await response.json();
+                attempts++;
+                attemptsCount.textContent = attempts;
+
+                displayGuess(result);
+
+                if (result.is_correct) {
+                    gameWon = true;
+                    showWinMessage();
+                    createConfetti();
+                } else if (attempts >= maxAttempts) {
+                    showLoseMessage();
+                }
+
+                playerInput.value = '';
+            } catch (error) {
+                console.error('Error making guess:', error);
+            }
+        }
+
+        function displayGuess(result) {
+            const guessRow = document.createElement('div');
+            guessRow.className = 'guess-row';
+
+            // Team
+            const teamCell = createCell('Équipe', '', result.team.status);
+            if (result.team.logo && result.team.logo.trim() !== '') {
+                const teamLogo = document.createElement('img');
+                teamLogo.src = result.team.logo;
+                teamLogo.className = 'team-logo';
+                teamLogo.alt = result.team.value;
+                teamLogo.onerror = () => handleImageError(teamLogo, result.team.value, 70, 70);
+                teamCell.appendChild(teamLogo);
+            } else {
+                const fallback = document.createElement('div');
+                fallback.className = 'image-fallback';
+                fallback.style.width = '70px';
+                fallback.style.height = '70px';
+                fallback.textContent = result.team.value;
+                teamCell.appendChild(fallback);
+            }
+            guessRow.appendChild(teamCell);
+
+            // Age
+            const ageCell = createCell('Âge', result.age.value, result.age.status);
+            if (result.age.status === 'incorrect') {
+                const arrow = document.createElement('span');
+                arrow.className = 'direction-arrow';
+                arrow.textContent = result.age.direction === 'higher' ? '↑' : '↓';
+                ageCell.querySelector('.cell-value').appendChild(arrow);
+            }
+            guessRow.appendChild(ageCell);
+
+            // Role
+            guessRow.appendChild(createCell('Rôle', result.role.value, result.role.status));
+
+            // Country
+            const countryCell = createCell('Pays', '', result.country.status);
+            const flag = document.createElement('div');
+            flag.className = 'flag';
+            flag.textContent = result.country.flag;
+            countryCell.appendChild(flag);
+            const countryName = document.createElement('div');
+            countryName.style.fontSize = '14px';
+            countryName.style.fontWeight = 'bold';
+            countryName.style.marginTop = '5px';
+            countryName.textContent = result.country.value;
+            countryCell.appendChild(countryName);
+            guessRow.appendChild(countryCell);
+
+            // KDA
+            const kdaCell = createCell('KDA', result.kda.value, result.kda.status);
+            if (result.kda.status === 'incorrect') {
+                const arrow = document.createElement('span');
+                arrow.className = 'direction-arrow';
+                arrow.textContent = result.kda.direction === 'higher' ? '↑' : '↓';
+                kdaCell.querySelector('.cell-value').appendChild(arrow);
+            }
+            guessRow.appendChild(kdaCell);
+
+            // Champion
+            const championCell = createCell('Champion', '', result.champion.status);
+            if (result.champion.image && result.champion.image.trim() !== '') {
+                const championImg = document.createElement('img');
+                championImg.src = result.champion.image;
+                championImg.className = 'champion-img';
+                championImg.alt = result.champion.value;
+                championImg.onerror = () => handleImageError(championImg, result.champion.value, 60, 60);
+                championCell.appendChild(championImg);
+            } else {
+                const fallback = document.createElement('div');
+                fallback.className = 'image-fallback';
+                fallback.style.width = '60px';
+                fallback.style.height = '60px';
+                fallback.style.borderRadius = '50%';
+                fallback.textContent = result.champion.value;
+                championCell.appendChild(fallback);
+            }
+            const championName = document.createElement('div');
+            championName.style.fontSize = '14px';
+            championName.style.fontWeight = 'bold';
+            championName.style.marginTop = '5px';
+            championName.textContent = result.champion.value;
+            championCell.appendChild(championName);
+            guessRow.appendChild(championCell);
+
+            guessesContainer.appendChild(guessRow);
+        }
+
+        function createCell(label, value, status) {
+            const cell = document.createElement('div');
+            cell.className = `guess-cell ${status}`;
+
+            const cellLabel = document.createElement('div');
+            cellLabel.className = 'cell-label';
+            cellLabel.textContent = label;
+            cell.appendChild(cellLabel);
+
+            if (value !== '') {
+                const cellValue = document.createElement('div');
+                cellValue.className = 'cell-value';
+                cellValue.textContent = value;
+                cell.appendChild(cellValue);
+            }
+
+            return cell;
+        }
+
+        function showWinMessage() {
+            message.textContent = `🎉 Félicitations ! Vous avez trouvé le joueur en ${attempts} ${attempts === 1 ? 'tentative' : 'tentatives'} !`;
+            message.className = 'message win';
+        }
+
+        function showLoseMessage() {
+            message.textContent = '😔 Fin de partie ! Bonne chance demain !';
+            message.className = 'message lose';
+        }
+
+        function createConfetti() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500'];
+
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                    document.body.appendChild(confetti);
+
+                    setTimeout(() => confetti.remove(), 3000);
+                }, i * 10);
+            }
+        }
+
+        // Helper function to handle image loading errors
+        function handleImageError(img, fallbackText, width, height) {
+            img.style.display = 'none';
+            const fallback = document.createElement('div');
+            fallback.className = 'image-fallback';
+            fallback.style.width = width + 'px';
+            fallback.style.height = height + 'px';
+            fallback.textContent = fallbackText;
+            img.parentNode.insertBefore(fallback, img.nextSibling);
+        }
+    </script>
+</body>
+</html>
