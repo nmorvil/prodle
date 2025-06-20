@@ -1,11 +1,10 @@
-from flask import Flask, render_template, jsonify, request, Response
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import json
 import random
 from datetime import datetime, date
 import hashlib
 from difflib import SequenceMatcher
-import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -16,6 +15,13 @@ app.static_folder = 'static'
 # Load player data
 with open('players.json', 'r') as f:
     PLAYERS_DATA = json.load(f)
+
+# Load team image mapping
+try:
+    with open('static/team_image_mapping.json', 'r') as f:
+        TEAM_IMAGE_MAPPING = json.load(f)
+except FileNotFoundError:
+    TEAM_IMAGE_MAPPING = {}
 
 # Create a dictionary for faster lookup by username
 PLAYERS_DICT = {player['player_username']: player for player in PLAYERS_DATA}
@@ -135,11 +141,18 @@ def get_player_suggestions(query, limit=3):
 
 def compare_players(guess, target):
     """Compare guessed player with target player"""
+    # Get local team image path
+    team_name = guess['player_team']
+    if team_name in TEAM_IMAGE_MAPPING:
+        team_logo = f"/static/team_images/{TEAM_IMAGE_MAPPING[team_name]}"
+    else:
+        team_logo = ""  # No logo available
+    
     result = {
         'username': guess['player_username'],
         'team': {
             'value': guess['player_team'],
-            'logo': guess['player_team_media_url'],
+            'logo': team_logo,
             'status': 'correct' if guess['player_team'] == target['player_team']
             else 'partial' if guess['player_league'] == target['player_league']
             else 'incorrect'
@@ -208,55 +221,6 @@ def debug_answer():
     """Debug endpoint to see today's answer"""
     return jsonify(get_daily_player())
 
-
-@app.route('/api/proxy/team-image')
-def proxy_team_image():
-    """Proxy endpoint for team images to avoid CORS issues"""
-    image_url = request.args.get('url')
-    
-    if not image_url:
-        return jsonify({'error': 'URL parameter is required'}), 400
-    
-    try:
-        # Enhanced headers to mimic a real browser request
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'image',
-            'Sec-Fetch-Mode': 'no-cors',
-            'Sec-Fetch-Site': 'cross-site'
-        }
-        
-        # Add referer if it's a PandaScore URL
-        if 'pandascore' in image_url.lower():
-            headers['Referer'] = 'https://pandascore.co/'
-        
-        # Fetch the image from the original URL
-        response = requests.get(image_url, timeout=15, headers=headers, allow_redirects=True)
-        
-        if response.status_code == 200:
-            # Return the image with appropriate headers
-            return Response(
-                response.content,
-                mimetype=response.headers.get('Content-Type', 'image/png'),
-                headers={
-                    'Cache-Control': 'public, max-age=3600',  # Cache for 1 hour
-                    'Access-Control-Allow-Origin': '*'
-                }
-            )
-        else:
-            # Log the error for debugging
-            print(f"Image proxy error: {response.status_code} for URL: {image_url}")
-            return jsonify({'error': f'Failed to fetch image: {response.status_code}'}), response.status_code
-            
-    except requests.RequestException as e:
-        print(f"Image proxy request exception: {str(e)} for URL: {image_url}")
-        return jsonify({'error': f'Request failed: {str(e)}'}), 500
 
 
 @app.route('/api/reroll', methods=['POST'])

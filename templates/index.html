@@ -408,7 +408,8 @@
             const teamCell = createCell('Équipe', '', result.team.status);
             if (result.team.logo && result.team.logo.trim() !== '') {
                 const teamLogo = document.createElement('img');
-                teamLogo.src = `/api/proxy/team-image?url=${encodeURIComponent(result.team.logo)}`;
+                // Use local team image
+                teamLogo.src = result.team.logo;
                 teamLogo.className = 'team-logo';
                 teamLogo.alt = result.team.value;
                 teamLogo.onerror = () => handleImageError(teamLogo, result.team.value, 70, 70);
