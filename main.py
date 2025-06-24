@@ -42,7 +42,8 @@ def get_champion_img(champion):
 def get_team_logo(team_name):
     """Get team logo URL - now uses URLs from player data instead of local files"""
     # This function is kept for compatibility but will use the URL from player_team_media_url
-    # The actual URL is now provided by the scraper via PandaScore API
+    # The actual URL is now provided by the scraper via
+    # API
     return ""  # Will be overridden by the URL from player data
 
 
@@ -192,6 +193,11 @@ def compare_players(guess, target):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/reroll')
+def reroll_page():
+    return render_template('reroll.html')
 
 
 @app.route('/api/suggestions')

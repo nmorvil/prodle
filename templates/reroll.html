@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relancer le Prodle</title>
+    <style>
+        @font-face {
+            font-family: 'ArticulatCF';
+            src: url('/static/ArticulatCF.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'ArticulatCF', 'Arial', sans-serif;
+            background-image: url('/static/bg_gtlv2.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: rgba(30, 35, 40, 0.9);
+            border: 2px solid #c89b3c;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #c89b3c;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .description {
+            font-size: 18px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+            color: #f0e6d2;
+        }
+
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        button {
+            background-color: #c89b3c;
+            color: #1e2328;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'ArticulatCF', 'Arial', sans-serif;
+        }
+
+        button:hover {
+            background-color: #f0e6d2;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .back-button {
+            background-color: #3a3a3c;
+            color: #fff;
+        }
+
+        .back-button:hover {
+            background-color: #5a5a5c;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: none;
+        }
+
+        .message.success {
+            background-color: #538d4e;
+            display: block;
+        }
+
+        .message.error {
+            background-color: #d32f2f;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Relancer le Prodle</h1>
+        <div class="description">
+            Cliquez sur le bouton ci-dessous pour relancer le jeu avec un nouveau joueur cible.
+        </div>
+        
+        <div class="button-container">
+            <button id="rerollButton" onclick="rerollDaily()">
+                Relancer le prodle
+            </button>
+            <button class="back-button" onclick="goBack()">
+                Retour au jeu
+            </button>
+        </div>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        async function rerollDaily() {
+            const button = document.getElementById('rerollButton');
+            const message = document.getElementById('message');
+            
+            button.disabled = true;
+            button.textContent = 'Relancement en cours...';
+            
+            try {
+                const response = await fetch('/api/reroll', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    message.textContent = `✅ Nouveau joueur sélectionné`;
+                    message.className = 'message success';
+                } else {
+                    message.textContent = '❌ Erreur lors du relancement';
+                    message.className = 'message error';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                message.textContent = '❌ Erreur de connexion';
+                message.className = 'message error';
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Relancer le prodle';
+            }
+        }
+
+        function goBack() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
