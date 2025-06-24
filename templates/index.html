@@ -45,7 +45,7 @@
 
         .game-container {
             width: 100%;
-            max-width: 800px;
+            max-width: 1000px;
         }
 
         .input-container {
@@ -110,7 +110,7 @@
 
         .guess-row {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-columns: repeat(7, 1fr);
             gap: 10px;
             animation: slideIn 0.5s ease-out;
         }
@@ -183,6 +183,10 @@
             font-size: 20px;
             font-weight: bold;
             margin-top: 10px;
+            word-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+            overflow-wrap: break-word;
         }
 
         .team-logo {
@@ -403,6 +407,12 @@
         function displayGuess(result) {
             const guessRow = document.createElement('div');
             guessRow.className = 'guess-row';
+
+            // Name
+            const cleanUsername = result.username.replace(/\s*\([^)]*\)/g, '');
+            const nameCell = createCell('Nom', cleanUsername, result.is_correct ? 'correct' : 'incorrect');
+            nameCell.querySelector('.cell-value').style.fontSize = '14px';
+            guessRow.appendChild(nameCell);
 
             // Team
             const teamCell = createCell('Équipe', '', result.team.status);
