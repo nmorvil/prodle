@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prodle - Jeu de devinettes League of Legends</title>
+    <style>
+        @font-face {
+            font-family: 'ArticulatCF';
+            src: url('/assets/fonts/ArticulatCF.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'ArticulatCF', Arial, sans-serif;
+            background-image: url('/assets/background/bg_gtlv2.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .container {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 3rem;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .title {
+            font-size: 4rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .play-button {
+            background: linear-gradient(45deg, #FF6B35, #F7931E);
+            border: none;
+            padding: 1.5rem 3rem;
+            font-size: 1.5rem;
+            font-family: 'ArticulatCF', Arial, sans-serif;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            margin-bottom: 3rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .play-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(45deg, #FF8A5B, #FFB347);
+        }
+
+        .leaderboard {
+            text-align: left;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+        }
+
+        .leaderboard h2 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 1.1rem;
+        }
+
+        .leaderboard-entry:last-child {
+            border-bottom: none;
+        }
+
+        .rank {
+            font-weight: bold;
+            color: #FFD700;
+            width: 30px;
+        }
+
+        .username {
+            flex: 1;
+            margin-left: 1rem;
+        }
+
+        .score {
+            font-weight: bold;
+            color: #32CD32;
+        }
+
+        .empty-leaderboard {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            font-style: italic;
+            padding: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 2rem;
+                margin: 1rem;
+            }
+            
+            .title {
+                font-size: 2.5rem;
+            }
+            
+            .play-button {
+                padding: 1rem 2rem;
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Prodle</h1>
+        
+        <button class="play-button" onclick="startGame()">
+            Prodle (2 min)
+        </button>
+        
+        <div class="leaderboard">
+            <h2>Top 10 Classement</h2>
+            {{if .Leaderboard}}
+                {{range .Leaderboard}}
+                <div class="leaderboard-entry">
+                    <span class="rank">#{{.Rank}}</span>
+                    <span class="username">{{.Username}}</span>
+                    <span class="score">{{.Score}} pts</span>
+                </div>
+                {{end}}
+            {{else}}
+                <div class="empty-leaderboard">
+                    Aucun score enregistré pour le moment
+                </div>
+            {{end}}
+        </div>
+    </div>
+
+    <script>
+        async function startGame() {
+            try {
+                const response = await fetch('/api/start-game', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Store session ID and redirect to game
+                    sessionStorage.setItem('sessionId', data.sessionId);
+                    window.location.href = '/game';
+                } else {
+                    alert('Erreur lors du démarrage du jeu: ' + (data.message || 'Erreur inconnue'));
+                }
+            } catch (error) {
+                console.error('Error starting game:', error);
+                alert('Erreur de connexion au serveur');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -16,7 +16,12 @@ func init() {
 	InitDatabase()
 
 	// Parse HTML templates
-	templates = template.Must(template.ParseGlob("templates/*.html"))
+	var err error
+	templates, err = template.ParseGlob("templates/*.html")
+	if err != nil {
+		log.Printf("Warning: Could not parse templates: %v", err)
+		templates = template.New("empty")
+	}
 }
 
 func main() {
