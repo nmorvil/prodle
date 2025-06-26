@@ -532,3 +532,56 @@ func GetSessionStats() map[string]interface{} {
 		"active_playing":     activePlaying,
 	}
 }
+
+// GetTimeRemaining returns the remaining time in seconds for the current player
+func GetTimeRemaining(session *GameSession) int {
+	if session == nil {
+		return 0
+	}
+
+	elapsedSeconds := int(time.Since(session.CurrentPlayerStartTime).Seconds())
+	remainingSeconds := 120 - elapsedSeconds // 2 minutes = 120 seconds
+
+	if remainingSeconds < 0 {
+		return 0
+	}
+
+	return remainingSeconds
+}
+
+// GetCurrentPlayerGuesses returns the number of guesses made for the current player
+func GetCurrentPlayerGuesses(session *GameSession) int {
+	if session == nil {
+		return 0
+	}
+
+	return len(session.Guesses)
+}
+
+// IsGameOver is a wrapper function for the session method
+func IsGameOver(session *GameSession) bool {
+	if session == nil {
+		return true
+	}
+
+	return session.IsGameOver()
+}
+
+// CheckCorrectGuess checks if the guessed player name matches the current target player
+func CheckCorrectGuess(session *GameSession, playerName string) bool {
+	if session == nil {
+		return false
+	}
+
+	targetPlayer := session.GetCurrentPlayer()
+	if targetPlayer == nil {
+		return false
+	}
+
+	guessedPlayer, exists := GetPlayerByName(playerName)
+	if !exists {
+		return false
+	}
+
+	return guessedPlayer.PlayerUsername == targetPlayer.PlayerUsername
+}
