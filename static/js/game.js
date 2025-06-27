@@ -1,4 +1,4 @@
-// Enhanced game logic for Prodle with UI components
+// Complete game flow implementation for Prodle
 class GameManager {
     constructor() {
         this.sessionId = '';
@@ -9,6 +9,7 @@ class GameManager {
         this.maxGuesses = 6;
         this.isGameActive = false;
         this.currentTargetPlayer = null;
+        this.playersFound = 0;
         
         // DOM elements
         this.guessInput = document.getElementById('guess-input');
@@ -19,6 +20,17 @@ class GameManager {
         this.autocompleteList = document.getElementById('autocomplete-list');
         this.currentPlayerDisplay = document.getElementById('current-player-display');
         this.currentPlayerGrid = document.getElementById('current-player-grid');
+        
+        // Overlay elements
+        this.successOverlay = document.getElementById('success-overlay');
+        this.endGameOverlay = document.getElementById('end-game-overlay');
+        this.loadingOverlay = document.getElementById('loading-overlay');
+        this.finalScoreElement = document.getElementById('final-score');
+        this.playersCompletedElement = document.getElementById('players-completed');
+        this.usernameInput = document.getElementById('username-input');
+        this.scoreForm = document.getElementById('score-form');
+        this.scoreSubmitted = document.getElementById('score-submitted');
+        this.submitScoreBtn = document.getElementById('submit-score-btn');
         
         // Autocomplete
         this.selectedIndex = -1;
@@ -97,6 +109,35 @@ class GameManager {
         if (this.guessButton) {
             this.guessButton.addEventListener('click', () => this.makeGuess());
         }
+
+        // Username input enter key
+        if (this.usernameInput) {
+            this.usernameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.submitFinalScore();
+                }
+            });
+        }
+    }
+
+    /**
+     * Show loading overlay
+     */
+    showLoading(text = 'Chargement...') {
+        if (this.loadingOverlay) {
+            this.loadingOverlay.querySelector('.loading-text').textContent = text;
+            this.loadingOverlay.classList.remove('hidden');
+        }
+    }
+
+    /**
+     * Hide loading overlay
+     */
+    hideLoading() {
+        if (this.loadingOverlay) {
+            this.loadingOverlay.classList.add('hidden');
+        }
     }
 
     /**
@@ -167,7 +208,7 @@ class GameManager {
             item.className = 'autocomplete-item';
             item.textContent = player;
             item.addEventListener('mousedown', (e) => {
-                e.preventDefault(); // Prevent blur event
+                e.preventDefault();
                 this.selectAutocompleteItem(index);
             });
             this.autocompleteList.appendChild(item);
@@ -182,7 +223,7 @@ class GameManager {
     hideAutocomplete() {
         setTimeout(() => {
             this.autocompleteList.classList.add('hidden');
-        }, 150); // Small delay to allow click events
+        }, 150);
     }
 
     /**
@@ -191,13 +232,11 @@ class GameManager {
     navigateAutocomplete(direction) {
         if (this.autocompleteResults.length === 0) return;
 
-        // Remove previous selection
         const items = this.autocompleteList.querySelectorAll('.autocomplete-item');
         if (this.selectedIndex >= 0 && items[this.selectedIndex]) {
             items[this.selectedIndex].classList.remove('selected');
         }
 
-        // Update selection
         this.selectedIndex += direction;
         
         if (this.selectedIndex < 0) {
@@ -206,7 +245,6 @@ class GameManager {
             this.selectedIndex = 0;
         }
 
-        // Add new selection
         if (items[this.selectedIndex]) {
             items[this.selectedIndex].classList.add('selected');
             items[this.selectedIndex].scrollIntoView({ block: 'nearest' });
@@ -225,7 +263,7 @@ class GameManager {
     }
 
     /**
-     * Make a guess
+     * Make a guess - Task 25: Implement guess submission flow
      */
     async makeGuess() {
         if (!this.isGameActive) return;
@@ -236,8 +274,10 @@ class GameManager {
             return;
         }
 
+        // Show loading state
         this.guessButton.disabled = true;
         this.guessInput.disabled = true;
+        this.guessButton.textContent = 'Traitement...';
 
         try {
             const response = await fetch('/api/guess', {
@@ -263,46 +303,99 @@ class GameManager {
             alert('Erreur de connexion au serveur');
         }
 
+        // Reset button state
         this.guessButton.disabled = false;
         this.guessInput.disabled = false;
+        this.guessButton.textContent = 'Deviner';
         this.guessInput.focus();
     }
 
     /**
-     * Handle guess result
+     * Handle guess result with animations
      */
     handleGuessResult(result) {
-        // Update score
+        // Update score with animation
         this.score = result.score;
         this.updateScoreDisplay();
 
-        // Add guess to history with detailed display
+        // Add guess to history with detailed display and animations
         this.addGuessToHistory(result);
 
         // Clear input
         this.guessInput.value = '';
         this.hideAutocomplete();
 
-        // Check if correct
+        // Check if correct - Task 26: Handle correct guess flow
         if (result.correct) {
-            this.showCurrentPlayerReveal(result.comparison.guessed_player);
-        }
-
-        // Check if should move to next player
-        if (result.correct || result.nextPlayer) {
+            this.handleCorrectGuess(result);
+        } else if (result.nextPlayer) {
+            // Max guesses reached, move to next player
             setTimeout(() => {
                 this.moveToNextPlayer();
-            }, result.correct ? 3000 : 1000); // Show result longer if correct
+            }, 1000);
         }
 
         // Check if game is over
         if (result.gameOver) {
             setTimeout(() => {
                 this.handleGameOver();
-            }, 2000);
+            }, result.correct ? 4000 : 2000);
         }
 
         this.guessCount++;
+    }
+
+    /**
+     * Task 26: Handle correct guess flow
+     */
+    handleCorrectGuess(result) {
+        this.playersFound++;
+        
+        // Show success message "Bravo!" for 1 second
+        this.showSuccessMessage();
+        
+        // Show current player reveal
+        setTimeout(() => {
+            this.showCurrentPlayerReveal(result.comparison.guessed_player);
+        }, 1000);
+        
+        // Fade out and move to next player after 3 seconds total
+        setTimeout(() => {
+            this.fadeOutGameState();
+            setTimeout(() => {
+                this.moveToNextPlayer();
+            }, 500);
+        }, 3000);
+    }
+
+    /**
+     * Show success message overlay
+     */
+    showSuccessMessage() {
+        if (this.successOverlay) {
+            this.successOverlay.classList.remove('hidden');
+            
+            // Hide after 1 second
+            setTimeout(() => {
+                this.successOverlay.classList.add('hidden');
+            }, 1000);
+        }
+    }
+
+    /**
+     * Fade out current game state
+     */
+    fadeOutGameState() {
+        const mainGame = document.querySelector('.main-game');
+        if (mainGame) {
+            mainGame.style.transition = 'opacity 0.5s ease-out';
+            mainGame.style.opacity = '0.3';
+            
+            // Reset opacity after transition
+            setTimeout(() => {
+                mainGame.style.opacity = '1';
+            }, 1000);
+        }
     }
 
     /**
@@ -389,7 +482,6 @@ class GameManager {
      * Get champion image URL
      */
     getChampionImageUrl(championName) {
-        // Handle special cases
         const nameMap = {
             "Kai'Sa": "Kaisa",
             "Wukong": "MonkeyKing",
@@ -419,11 +511,15 @@ class GameManager {
     }
 
     /**
-     * Add guess result to history with detailed cards
+     * Add guess result to history with animations
      */
     addGuessToHistory(result) {
         const guessDiv = document.createElement('div');
         guessDiv.className = result.correct ? 'guess-result correct-guess' : 'guess-result';
+        
+        // Add fade-in animation
+        guessDiv.style.opacity = '0';
+        guessDiv.style.transform = 'translateY(20px)';
         
         // Header with player name and status
         const header = document.createElement('div');
@@ -447,7 +543,6 @@ class GameManager {
         const player = result.comparison.guessed_player;
         const comparisons = result.comparison.comparisons;
         
-        // Create attribute cards for guess history (smaller versions)
         const attributes = [
             { key: 'team', label: 'Équipe', value: player.player_team },
             { key: 'league', label: 'Ligue', value: player.player_league },
@@ -471,6 +566,13 @@ class GameManager {
         guessDiv.appendChild(attributesGrid);
         
         this.guessHistoryElement.appendChild(guessDiv);
+        
+        // Animate in
+        setTimeout(() => {
+            guessDiv.style.transition = 'all 0.5s ease-out';
+            guessDiv.style.opacity = '1';
+            guessDiv.style.transform = 'translateY(0)';
+        }, 50);
         
         // Scroll to bottom
         this.guessHistoryElement.scrollTop = this.guessHistoryElement.scrollHeight;
@@ -505,7 +607,7 @@ class GameManager {
     }
 
     /**
-     * Move to next player
+     * Move to next player - Load next player and reset guess history
      */
     moveToNextPlayer() {
         this.currentPlayer++;
@@ -515,11 +617,10 @@ class GameManager {
         this.currentPlayerDisplay.classList.add('hidden');
         this.currentPlayerDisplay.classList.remove('revealed');
         
-        // Clear guess history for next player
-        this.guessHistoryElement.innerHTML = '<h3>Historique des Tentatives</h3><div id="guess-list"></div>';
-        this.guessHistoryElement = document.getElementById('guess-list') || this.guessHistoryElement;
+        // Reset guess history for next player
+        this.guessHistoryElement.innerHTML = '';
         
-        // Reset timer for next player
+        // Reset timer for next player and continue timer
         window.timerManager.reset();
         window.timerManager.start(
             () => this.handleTimeUp(),
@@ -553,7 +654,7 @@ class GameManager {
     }
 
     /**
-     * Handle game over
+     * Task 27: Create end game flow
      */
     handleGameOver() {
         this.isGameActive = false;
@@ -561,23 +662,57 @@ class GameManager {
         
         console.log('Game over! Final score:', this.score);
         
-        // Show game over dialog
-        const username = prompt(`Jeu terminé! Score final: ${this.score}\nEntrez votre nom pour le classement:`);
-        
-        if (username && username.trim()) {
-            this.submitScore(username.trim());
-        } else {
-            // Redirect to home after a delay
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 3000);
-        }
+        // Show final score and username input form
+        this.showEndGameOverlay();
     }
 
     /**
-     * Submit final score
+     * Show end game overlay with final score and username input
      */
-    async submitScore(username) {
+    showEndGameOverlay() {
+        if (this.finalScoreElement) {
+            this.finalScoreElement.textContent = `Score Final: ${this.score}`;
+        }
+        
+        if (this.playersCompletedElement) {
+            this.playersCompletedElement.textContent = `Joueurs Trouvés: ${this.playersFound}/${this.totalPlayers}`;
+        }
+        
+        // Show score form, hide submitted message
+        this.scoreForm.classList.remove('hidden');
+        this.scoreSubmitted.classList.add('hidden');
+        
+        // Focus username input
+        setTimeout(() => {
+            if (this.usernameInput) {
+                this.usernameInput.focus();
+            }
+        }, 500);
+        
+        this.endGameOverlay.classList.remove('hidden');
+    }
+
+    /**
+     * Task 28: Implement score submission
+     */
+    async submitFinalScore() {
+        const username = this.usernameInput.value.trim();
+        
+        if (!username) {
+            alert('Veuillez entrer votre nom');
+            this.usernameInput.focus();
+            return;
+        }
+
+        if (username.length > 50) {
+            alert('Le nom ne peut pas dépasser 50 caractères');
+            return;
+        }
+
+        // Disable submit button and show loading
+        this.submitScoreBtn.disabled = true;
+        this.submitScoreBtn.textContent = 'Enregistrement...';
+
         try {
             const response = await fetch('/api/submit-score', {
                 method: 'POST',
@@ -593,19 +728,120 @@ class GameManager {
             const data = await response.json();
             
             if (data.success) {
-                alert('Score enregistré avec succès!');
+                // Show confirmation message and update leaderboard
+                this.showScoreSubmitted();
+                this.loadLeaderboard(); // Refresh leaderboard
             } else {
                 alert('Erreur lors de l\'enregistrement: ' + (data.message || 'Erreur inconnue'));
+                this.submitScoreBtn.disabled = false;
+                this.submitScoreBtn.textContent = 'Enregistrer Score';
             }
         } catch (error) {
             console.error('Error submitting score:', error);
             alert('Erreur de connexion lors de l\'enregistrement');
+            this.submitScoreBtn.disabled = false;
+            this.submitScoreBtn.textContent = 'Enregistrer Score';
         }
+    }
 
-        // Redirect to home
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 2000);
+    /**
+     * Show score submitted confirmation
+     */
+    showScoreSubmitted() {
+        this.scoreForm.classList.add('hidden');
+        this.scoreSubmitted.classList.remove('hidden');
+    }
+
+    /**
+     * Task 29: Build restart functionality
+     */
+    async restartGame() {
+        this.showLoading('Création d\'une nouvelle partie...');
+        
+        try {
+            // Create new session
+            const response = await fetch('/api/start-game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Store new session ID and reset all game state
+                sessionStorage.setItem('sessionId', data.sessionId);
+                this.resetGameState();
+                
+                // Hide all overlays
+                this.hideLoading();
+                this.endGameOverlay.classList.add('hidden');
+                
+                // Show countdown again and start fresh game
+                window.countdownManager.start(() => {
+                    console.log('Countdown finished, starting fresh game...');
+                    
+                    if (window.timerManager) {
+                        window.timerManager.start(
+                            () => this.handleTimeUp(),
+                            (timeLeft) => this.handleTimerTick(timeLeft)
+                        );
+                    }
+                    
+                    // Re-enable game controls
+                    this.guessInput.disabled = false;
+                    this.guessButton.disabled = false;
+                    this.guessInput.focus();
+                    
+                    // Re-initialize game
+                    this.initialize();
+                });
+            } else {
+                alert('Erreur lors du démarrage du jeu: ' + (data.message || 'Erreur inconnue'));
+                this.hideLoading();
+            }
+        } catch (error) {
+            console.error('Error restarting game:', error);
+            alert('Erreur de connexion au serveur');
+            this.hideLoading();
+        }
+    }
+
+    /**
+     * Reset all game state for restart
+     */
+    resetGameState() {
+        this.sessionId = sessionStorage.getItem('sessionId');
+        this.currentPlayer = 1;
+        this.score = 0;
+        this.guessCount = 0;
+        this.playersFound = 0;
+        this.isGameActive = true;
+        
+        // Update displays
+        this.updateScoreDisplay();
+        this.updatePlayerCounter();
+        
+        // Clear guess history
+        this.guessHistoryElement.innerHTML = '';
+        
+        // Hide player display
+        this.currentPlayerDisplay.classList.add('hidden');
+        this.currentPlayerDisplay.classList.remove('revealed');
+        
+        // Clear input
+        this.guessInput.value = '';
+        this.usernameInput.value = '';
+        
+        // Reset submit button
+        this.submitScoreBtn.disabled = false;
+        this.submitScoreBtn.textContent = 'Enregistrer Score';
+        
+        // Update session ID input
+        document.getElementById('session-id').value = this.sessionId;
+        
+        console.log('Game state reset for restart');
     }
 
     /**
@@ -631,7 +867,6 @@ class GameManager {
      */
     async loadLeaderboard() {
         // This would call a leaderboard API endpoint when implemented
-        // For now, we'll leave it empty since the endpoint isn't created yet
         console.log('Leaderboard loading not implemented yet');
     }
 }
@@ -639,14 +874,26 @@ class GameManager {
 // Global game manager instance
 window.gameManager = new GameManager();
 
-// Global function for guess button (called from HTML)
+// Global functions for HTML onclick handlers
 function makeGuess() {
     if (window.gameManager) {
         window.gameManager.makeGuess();
     }
 }
 
+function submitFinalScore() {
+    if (window.gameManager) {
+        window.gameManager.submitFinalScore();
+    }
+}
+
+function restartGame() {
+    if (window.gameManager) {
+        window.gameManager.restartGame();
+    }
+}
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Enhanced game system initialized');
+    console.log('Complete game flow system initialized');
 });

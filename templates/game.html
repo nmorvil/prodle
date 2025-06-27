@@ -453,6 +453,244 @@
             display: none !important;
         }
 
+        /* Success overlay styles */
+        .success-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            backdrop-filter: blur(10px);
+        }
+
+        .success-content {
+            text-align: center;
+            animation: successBounce 1s ease-out;
+        }
+
+        .success-message {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #32CD32;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+            margin-bottom: 1rem;
+        }
+
+        .success-icon {
+            font-size: 6rem;
+            animation: iconRotate 1s ease-out;
+        }
+
+        @keyframes successBounce {
+            0% {
+                opacity: 0;
+                transform: scale(0.3) translateY(-50px);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.1) translateY(0);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes iconRotate {
+            0% {
+                transform: rotate(-30deg) scale(0.5);
+            }
+            100% {
+                transform: rotate(0deg) scale(1);
+            }
+        }
+
+        /* End game overlay styles */
+        .end-game-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 4000;
+            backdrop-filter: blur(15px);
+        }
+
+        .end-game-content {
+            background: rgba(0, 0, 0, 0.9);
+            padding: 3rem;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            border: 2px solid #FFD700;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            0% {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .end-game-title {
+            font-size: 2.5rem;
+            color: #FFD700;
+            margin-bottom: 1.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .final-score {
+            font-size: 2rem;
+            color: #32CD32;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+
+        .players-completed {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 2rem;
+        }
+
+        .score-form h3 {
+            color: #FFD700;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        #username-input {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.1rem;
+            border: 2px solid #FF6B35;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-family: 'ArticulatCF', Arial, sans-serif;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        #username-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        #username-input:focus {
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+        }
+
+        .end-game-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .submit-score-btn,
+        .restart-btn {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-family: 'ArticulatCF', Arial, sans-serif;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .submit-score-btn {
+            background: linear-gradient(45deg, #32CD32, #228B22);
+            color: white;
+        }
+
+        .submit-score-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(50, 205, 50, 0.4);
+        }
+
+        .submit-score-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .restart-btn {
+            background: linear-gradient(45deg, #FF6B35, #F7931E);
+            color: white;
+        }
+
+        .restart-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.4);
+        }
+
+        .submitted-message {
+            font-size: 1.3rem;
+            color: #32CD32;
+            margin-bottom: 2rem;
+            font-weight: bold;
+        }
+
+        /* Loading overlay styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 5000;
+            backdrop-filter: blur(10px);
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 215, 0, 0.3);
+            border-top: 4px solid #FFD700;
+            border-radius: 50%;
+            animation: spinLoader 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spinLoader {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            color: #FFD700;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
         /* Responsive Design */
         @media (max-width: 1024px) {
             .game-container {
@@ -489,6 +727,37 @@
 
             .player-grid {
                 grid-template-columns: repeat(2, 1fr);
+            }
+
+            .success-message {
+                font-size: 2.5rem;
+            }
+
+            .success-icon {
+                font-size: 4rem;
+            }
+
+            .end-game-content {
+                padding: 2rem;
+                margin: 1rem;
+            }
+
+            .end-game-title {
+                font-size: 2rem;
+            }
+
+            .final-score {
+                font-size: 1.5rem;
+            }
+
+            .end-game-buttons {
+                flex-direction: column;
+            }
+
+            .submit-score-btn,
+            .restart-btn {
+                width: 100%;
+                padding: 1rem;
             }
         }
     </style>
@@ -554,6 +823,55 @@
     <!-- Countdown overlay -->
     <div class="countdown-overlay" id="countdown-overlay">
         <div class="countdown-number" id="countdown-number">3</div>
+    </div>
+
+    <!-- Success overlay for correct guesses -->
+    <div class="success-overlay hidden" id="success-overlay">
+        <div class="success-content">
+            <div class="success-message">Bravo!</div>
+            <div class="success-icon">🎉</div>
+        </div>
+    </div>
+
+    <!-- End game overlay -->
+    <div class="end-game-overlay hidden" id="end-game-overlay">
+        <div class="end-game-content">
+            <h2 class="end-game-title">Jeu Terminé!</h2>
+            <div class="final-score" id="final-score">Score Final: 0</div>
+            <div class="players-completed" id="players-completed">Joueurs Trouvés: 0/20</div>
+            
+            <div class="score-form" id="score-form">
+                <h3>Enregistrer votre Score</h3>
+                <input 
+                    type="text" 
+                    id="username-input" 
+                    placeholder="Entrez votre nom..." 
+                    maxlength="50"
+                    autocomplete="off"
+                >
+                <div class="end-game-buttons">
+                    <button class="submit-score-btn" id="submit-score-btn" onclick="submitFinalScore()">
+                        Enregistrer Score
+                    </button>
+                    <button class="restart-btn" id="restart-btn" onclick="restartGame()">
+                        Recommencer
+                    </button>
+                </div>
+            </div>
+
+            <div class="score-submitted hidden" id="score-submitted">
+                <div class="submitted-message">Score enregistré avec succès!</div>
+                <button class="restart-btn" onclick="restartGame()">
+                    Recommencer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Chargement...</div>
     </div>
 
     <!-- Hidden session storage -->
