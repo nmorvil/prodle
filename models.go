@@ -39,7 +39,7 @@ const (
 // GuessResult contains the result of a player guess with comparison results
 type GuessResult struct {
 	GuessedPlayer Player                      `json:"guessed_player"`
-	TargetPlayer  Player                      `json:"target_player"`
+	TargetPlayer  Player                      `json:"-"` // Don't send to client - security
 	Timestamp     time.Time                   `json:"timestamp"`
 	Comparisons   map[string]ComparisonResult `json:"comparisons"`
 	IsCorrect     bool                        `json:"is_correct"`

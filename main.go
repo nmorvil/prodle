@@ -180,11 +180,8 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("DEBUG: Guess request for sessionID: %s, playerName: %s", req.SessionID, req.PlayerName)
-
 	session, exists := GetSession(req.SessionID)
 	if !exists {
-		log.Printf("DEBUG: Session %s not found in active sessions", req.SessionID)
 		response := GuessResponse{
 			Success: false,
 			Message: "Session not found",
@@ -193,9 +190,6 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-
-	log.Printf("DEBUG: Found session %s, currentPlayer: %d/%d, isCompleted: %v",
-		req.SessionID, session.CurrentPlayerIndex+1, len(session.SelectedPlayers), session.IsCompleted)
 
 	if session.IsGameOver() {
 		response := GuessResponse{
@@ -232,12 +226,8 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		Score:      session.Score,
 		TimeLeft:   timeLeft,
 		GameOver:   session.IsGameOver(),
-		NextPlayer: isCorrect || GetCurrentPlayerGuesses(session) >= 6,
+		NextPlayer: isCorrect,
 	}
-
-	// Add debug logging for response
-	log.Printf("Sending guess response for session %s: correct=%v, nextPlayer=%v, gameOver=%v, score=%d",
-		session.SessionID, isCorrect, response.NextPlayer, response.GameOver, session.Score)
 
 	json.NewEncoder(w).Encode(response)
 }
@@ -339,13 +329,8 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Debug: Log session state for score submission
-	log.Printf("DEBUG: Score submission for session %s - IsCompleted: %v, IsGameOver: %v, CurrentPlayer: %d/%d",
-		req.SessionID, session.IsCompleted, session.IsGameOver(), session.CurrentPlayerIndex+1, len(session.SelectedPlayers))
-
 	// Validate session is completed or game over
 	if !session.IsCompleted && !session.IsGameOver() {
-		log.Printf("DEBUG: Rejecting score submission - session still active")
 		response := SubmitScoreResponse{
 			Success: false,
 			Message: "Game session is still active",
@@ -451,7 +436,6 @@ func endGameHandler(w http.ResponseWriter, r *http.Request) {
 
 type GameConfig struct {
 	TotalGameTimeSeconds int `json:"totalGameTimeSeconds"`
-	MaxGuesses           int `json:"maxGuesses"`
 	PlayersPerSession    int `json:"playersPerSession"`
 }
 
@@ -468,7 +452,6 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 		// Return current configuration
 		config := &GameConfig{
 			TotalGameTimeSeconds: TotalGameTime,
-			MaxGuesses:           MaxGuesses,
 			PlayersPerSession:    PlayersPerSession,
 		}
 

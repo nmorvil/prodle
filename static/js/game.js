@@ -16,7 +16,6 @@ class GameManager {
         this.guessButton = document.getElementById('guess-button');
         this.scoreElement = document.getElementById('score');
         this.playerCounterElement = document.getElementById('player-counter');
-        this.attemptsCounterElement = document.getElementById('attempts-counter');
         this.guessRowsElement = document.getElementById('guess-rows');
         this.autocompleteList = document.getElementById('autocomplete-list');
         
@@ -94,13 +93,7 @@ class GameManager {
         // Load initial leaderboard
         this.loadLeaderboard();
         
-        console.log('DEBUG: Game initialized with session:', this.sessionId);
-        console.log(`DEBUG: Starting player: ${this.currentPlayer}/${this.totalPlayers}`);
-        console.log('DEBUG: Game state:', { 
-            currentPlayer: this.currentPlayer,
-            score: this.score,
-            isGameActive: this.isGameActive
-        });
+        console.log('Game initialized');
     }
 
     /**
@@ -125,7 +118,6 @@ class GameManager {
         if (this.guessInput) this.guessInput.disabled = true;
         if (this.guessButton) this.guessButton.disabled = true;
         
-        console.log('Initial game state setup');
     }
 
     /**
@@ -455,7 +447,6 @@ class GameManager {
         this.setLoadingState(true);
 
         try {
-            console.log('DEBUG: Making guess request with sessionId:', this.sessionId, 'playerName:', playerName);
             
             const response = await fetch('/api/guess', {
                 method: 'POST',
@@ -469,16 +460,13 @@ class GameManager {
                 timeout: 10000 // 10 second timeout
             });
 
-            console.log('DEBUG: Guess response status:', response.status, 'ok:', response.ok);
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.log('DEBUG: Error response body:', errorText);
                 throw new Error(`Erreur serveur: ${response.status} - ${errorText}`);
             }
 
             const data = await response.json();
-            console.log('DEBUG: Guess response data:', data);
             
             if (data.success) {
                 this.handleGuessResult(data);
@@ -498,13 +486,7 @@ class GameManager {
      * Handle guess result with animations
      */
     handleGuessResult(result) {
-        console.log('DEBUG: Handling guess result:', result);
         
-        // Store current target player for debugging
-        if (result.comparison && result.comparison.targetPlayer) {
-            this.currentTargetPlayer = result.comparison.targetPlayer;
-            console.log(`DEBUG: Current target player is: ${this.currentTargetPlayer.player_username} (Team: ${this.currentTargetPlayer.player_team})`);
-        }
 
         // Update score with animation
         this.score = result.score;
@@ -519,20 +501,11 @@ class GameManager {
 
         // Check if correct - Handle correct guess flow
         if (result.correct) {
-            console.log('DEBUG: Correct guess detected!');
-            console.log(`DEBUG: Found player: ${result.comparison.guessed_player.player_username}`);
             this.handleCorrectGuess(result);
-        } else if (result.nextPlayer) {
-            // Max guesses reached, move to next player
-            console.log('DEBUG: Max guesses reached, moving to next player');
-            setTimeout(() => {
-                this.moveToNextPlayer();
-            }, 1000);
         }
 
         // Check if game is over (timer ran out or all players found)
         if (result.gameOver) {
-            console.log('DEBUG: Game over detected');
             setTimeout(() => {
                 this.handleGameOver();
             }, result.correct ? 3000 : 1000);
@@ -540,17 +513,12 @@ class GameManager {
 
         this.guessCount++;
         
-        // Update attempts counter
-        this.updateAttemptsCounter();
     }
 
     /**
      * Handle correct guess flow - Continue with same timer
      */
     handleCorrectGuess(result) {
-        console.log('DEBUG: Handling correct guess!', result);
-        console.log('DEBUG: NextPlayer flag:', result.nextPlayer);
-        console.log('DEBUG: GameOver flag:', result.gameOver);
         
         this.playersFound++;
         
@@ -561,7 +529,6 @@ class GameManager {
         setTimeout(() => {
             this.fadeOutGameState();
             setTimeout(() => {
-                console.log('DEBUG: About to call moveToNextPlayer from handleCorrectGuess');
                 this.moveToNextPlayer();
             }, 300);
         }, 1500);
@@ -571,15 +538,12 @@ class GameManager {
      * Show success message overlay
      */
     showSuccessMessage() {
-        console.log('Showing success message, overlay element:', this.successOverlay);
         if (this.successOverlay) {
             this.successOverlay.classList.remove('hidden');
-            console.log('Success overlay shown');
             
             // Hide after 1 second
             setTimeout(() => {
                 this.successOverlay.classList.add('hidden');
-                console.log('Success overlay hidden');
             }, 1000);
         } else {
             console.error('Success overlay element not found!');
@@ -920,31 +884,23 @@ class GameManager {
      * Move to next player - Load next player and clear guess grid
      */
     moveToNextPlayer() {
-        console.log('DEBUG: Moving to next player...');
-        console.log(`DEBUG: Current player before move: ${this.currentPlayer}`);
-        console.log(`DEBUG: Current target player: ${this.currentTargetPlayer ? this.currentTargetPlayer.player_username : 'null'}`);
         
         this.currentPlayer++;
         this.guessCount = 0;
         
         
         // Clear guess grid for next player
-        console.log('DEBUG: Clearing guess grid');
         this.guessRowsElement.innerHTML = '';
 
-        // Update player counter and reset attempts
+        // Update player counter
         this.updatePlayerCounter();
-        this.updateAttemptsCounter();
 
         // Check if we've reached the end of players
         if (this.currentPlayer > this.totalPlayers) {
-            console.log('DEBUG: All players completed, ending game');
             this.handleGameOver();
             return;
         }
 
-        console.log(`DEBUG: Moved to player ${this.currentPlayer}/${this.totalPlayers}`);
-        console.log('DEBUG: Player change completed, waiting for server to provide new target player');
     }
 
     /**
@@ -969,11 +925,9 @@ class GameManager {
         this.isGameActive = false;
         window.timerManager.stop();
         
-        console.log('DEBUG: Game over! Final score:', this.score);
         
         // Notify backend that game is over
         try {
-            console.log('DEBUG: Calling end-game API for session:', this.sessionId);
             const response = await fetch('/api/end-game', {
                 method: 'POST',
                 headers: {
@@ -986,12 +940,11 @@ class GameManager {
 
             const data = await response.json();
             if (data.success) {
-                console.log('DEBUG: Game session marked as completed on backend');
             } else {
-                console.error('DEBUG: Failed to mark game as completed:', data.message);
+                console.error('Failed to mark game as completed:', data.message);
             }
         } catch (error) {
-            console.error('DEBUG: Error calling end-game API:', error);
+            console.error('Error calling end-game API:', error);
         }
         
         // Show final score and username input form
@@ -1088,7 +1041,6 @@ class GameManager {
      * Task 29: Build restart functionality - Simply redirect to home page
      */
     restartGame() {
-        console.log('DEBUG: Restarting game - redirecting to home page');
         
         // Clear session storage
         sessionStorage.removeItem('sessionId');
@@ -1116,22 +1068,12 @@ class GameManager {
         }
     }
 
-    /**
-     * Update attempts counter display
-     */
-    updateAttemptsCounter() {
-        if (this.attemptsCounterElement) {
-            const currentPlayerGuesses = this.guessCount;
-            this.attemptsCounterElement.textContent = `Tentatives: ${currentPlayerGuesses}/10`;
-        }
-    }
 
     /**
      * Load leaderboard for sidebar
      */
     async loadLeaderboard() {
         // This would call a leaderboard API endpoint when implemented
-        console.log('Leaderboard loading not implemented yet');
     }
 }
 

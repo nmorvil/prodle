@@ -16,7 +16,6 @@ var (
 )
 
 const (
-	MaxGuesses        = 6
 	SessionTimeout    = 24 * time.Hour // Sessions expire after 24 hours
 	CleanupInterval   = 1 * time.Hour  // Run cleanup every hour
 	PlayersPerSession = 20
@@ -121,20 +120,7 @@ func CreateNewSession() (*GameSession, error) {
 	activeSessions[sessionID] = session
 	sessionMutex.Unlock()
 
-	// Debug: Show the initial player and first few players
 	log.Printf("Created new session %s with %d players", sessionID, len(players))
-	if len(players) > 0 {
-		firstPlayer := &players[0]
-		log.Printf("Session %s starting with player 1/%d: %s (Team: %s, Role: %s, Age: %d)",
-			sessionID, len(players), firstPlayer.PlayerUsername, firstPlayer.PlayerTeam,
-			firstPlayer.PlayerRole, firstPlayer.PlayerAge)
-
-		// Show next few players for debugging
-		for i := 1; i < min(len(players), 5); i++ {
-			p := &players[i]
-			log.Printf("Session %s player %d: %s (Team: %s)", sessionID, i+1, p.PlayerUsername, p.PlayerTeam)
-		}
-	}
 
 	return session, nil
 }
@@ -146,12 +132,8 @@ func GetSession(sessionID string) (*GameSession, bool) {
 
 	session, exists := activeSessions[sessionID]
 
-	// Debug: Log current active sessions if session not found
 	if !exists {
-		log.Printf("DEBUG: Session %s not found. Active sessions: %d", sessionID, len(activeSessions))
-		for id := range activeSessions {
-			log.Printf("DEBUG: Active session: %s", id)
-		}
+		log.Printf("Session %s not found. Active sessions: %d", sessionID, len(activeSessions))
 	}
 
 	return session, exists
@@ -228,20 +210,8 @@ func (gs *GameSession) MoveToNextPlayer() bool {
 	// Reset guesses for next player (keep total game timer running)
 	gs.Guesses = make([]GuessResult, 0)
 
-	// Debug: Show the current player details
-	currentPlayer := gs.GetCurrentPlayer()
-	elapsedSeconds := gs.GetTotalElapsedTime()
-	remainingSeconds := TotalGameTime - elapsedSeconds
-
-	if currentPlayer != nil {
-		log.Printf("Session %s moved to player %d/%d: %s (Team: %s, Role: %s, Age: %d) - Time remaining: %ds",
-			gs.SessionID, gs.CurrentPlayerIndex+1, len(gs.SelectedPlayers),
-			currentPlayer.PlayerUsername, currentPlayer.PlayerTeam, currentPlayer.PlayerRole, currentPlayer.PlayerAge,
-			remainingSeconds)
-	} else {
-		log.Printf("Session %s moved to player %d/%d but current player is nil!",
-			gs.SessionID, gs.CurrentPlayerIndex+1, len(gs.SelectedPlayers))
-	}
+	log.Printf("Session %s moved to player %d/%d",
+		gs.SessionID, gs.CurrentPlayerIndex+1, len(gs.SelectedPlayers))
 
 	return true // More players remaining
 }
@@ -321,12 +291,6 @@ func ValidateGuess(session *GameSession, guessedPlayerName string) (*GuessResult
 		return nil, fmt.Errorf("session already completed")
 	}
 
-	// Check if max guesses reached for current player
-	currentPlayerGuesses := len(session.Guesses)
-	if currentPlayerGuesses >= MaxGuesses {
-		return nil, fmt.Errorf("maximum guesses reached for current player")
-	}
-
 	// Validate and sanitize input
 	guessedPlayerName = SanitizeInput(guessedPlayerName)
 	if valid, errMsg := ValidatePlayerGuess(guessedPlayerName); !valid {
@@ -344,12 +308,6 @@ func ValidateGuess(session *GameSession, guessedPlayerName string) (*GuessResult
 	if targetPlayer == nil {
 		return nil, fmt.Errorf("no current target player")
 	}
-
-	// Debug: Show the guess being made
-	log.Printf("Session %s player %d/%d: Guessing '%s' vs target '%s' (Team: %s, Role: %s)",
-		session.SessionID, session.CurrentPlayerIndex+1, len(session.SelectedPlayers),
-		guessedPlayer.PlayerUsername, targetPlayer.PlayerUsername,
-		targetPlayer.PlayerTeam, targetPlayer.PlayerRole)
 
 	// Compare guess with target using detailed comparison
 	comparisons := comparePlayersDetailed(*guessedPlayer, *targetPlayer)
@@ -371,14 +329,10 @@ func ValidateGuess(session *GameSession, guessedPlayerName string) (*GuessResult
 	if isCorrect {
 		session.handleCorrectGuess()
 	} else {
-		// Check if game should end after this guess
+		// Check if game should end after this guess (only for time limit)
 		if session.IsGameOver() {
-			if len(session.Guesses) >= MaxGuesses {
-				session.handleMaxGuessesReached()
-			} else {
-				// Time limit reached
-				session.handleTimeLimit()
-			}
+			// Time limit reached
+			session.handleTimeLimit()
 		}
 	}
 
@@ -529,17 +483,6 @@ func (gs *GameSession) handleCorrectGuess() {
 	// Move to next player using the proper function
 	if !gs.MoveToNextPlayer() {
 		// All players completed
-		gs.CompleteSession()
-	}
-}
-
-// handleMaxGuessesReached processes when max guesses are reached without correct answer
-func (gs *GameSession) handleMaxGuessesReached() {
-	log.Printf("Max guesses reached in session %s for player %d/%d",
-		gs.SessionID, gs.CurrentPlayerIndex+1, len(gs.SelectedPlayers))
-
-	// Move to next player or end session
-	if !gs.MoveToNextPlayer() {
 		gs.CompleteSession()
 	}
 }
