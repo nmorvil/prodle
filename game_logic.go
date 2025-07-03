@@ -20,6 +20,7 @@ const (
 	SessionTimeout    = 24 * time.Hour // Sessions expire after 24 hours
 	CleanupInterval   = 1 * time.Hour  // Run cleanup every hour
 	PlayersPerSession = 20
+	TotalGameTime     = 120 // Total game time in seconds (2 minutes for entire game)
 )
 
 // SessionManager handles session lifecycle
@@ -105,15 +106,14 @@ func CreateNewSession() (*GameSession, error) {
 	// Create new session
 	now := time.Now()
 	session := &GameSession{
-		SessionID:              sessionID,
-		SelectedPlayers:        players,
-		CurrentPlayerIndex:     0,
-		Score:                  0,
-		StartTime:              now,
-		CurrentPlayerStartTime: now,
-		Guesses:                make([]GuessResult, 0),
-		IsCompleted:            false,
-		CompletionTime:         nil,
+		SessionID:          sessionID,
+		SelectedPlayers:    players,
+		CurrentPlayerIndex: 0,
+		Score:              0,
+		StartTime:          now,
+		Guesses:            make([]GuessResult, 0),
+		IsCompleted:        false,
+		CompletionTime:     nil,
 	}
 
 	// Store session in memory
@@ -121,7 +121,21 @@ func CreateNewSession() (*GameSession, error) {
 	activeSessions[sessionID] = session
 	sessionMutex.Unlock()
 
+	// Debug: Show the initial player and first few players
 	log.Printf("Created new session %s with %d players", sessionID, len(players))
+	if len(players) > 0 {
+		firstPlayer := &players[0]
+		log.Printf("Session %s starting with player 1/%d: %s (Team: %s, Role: %s, Age: %d)",
+			sessionID, len(players), firstPlayer.PlayerUsername, firstPlayer.PlayerTeam,
+			firstPlayer.PlayerRole, firstPlayer.PlayerAge)
+
+		// Show next few players for debugging
+		for i := 1; i < min(len(players), 5); i++ {
+			p := &players[i]
+			log.Printf("Session %s player %d: %s (Team: %s)", sessionID, i+1, p.PlayerUsername, p.PlayerTeam)
+		}
+	}
+
 	return session, nil
 }
 
@@ -131,6 +145,15 @@ func GetSession(sessionID string) (*GameSession, bool) {
 	defer sessionMutex.RUnlock()
 
 	session, exists := activeSessions[sessionID]
+
+	// Debug: Log current active sessions if session not found
+	if !exists {
+		log.Printf("DEBUG: Session %s not found. Active sessions: %d", sessionID, len(activeSessions))
+		for id := range activeSessions {
+			log.Printf("DEBUG: Active session: %s", id)
+		}
+	}
+
 	return session, exists
 }
 
@@ -158,16 +181,24 @@ func (gs *GameSession) GetCurrentPlayer() *Player {
 	return nil
 }
 
-// GetCurrentPlayerElapsedTime returns the elapsed time for the current player in seconds
-func (gs *GameSession) GetCurrentPlayerElapsedTime() int {
-	return int(time.Since(gs.CurrentPlayerStartTime).Seconds())
+// GetTotalElapsedTime returns the elapsed time for the entire game in seconds
+func (gs *GameSession) GetTotalElapsedTime() int {
+	return int(time.Since(gs.StartTime).Seconds())
 }
 
-// GetCurrentPlayerScore returns the potential score for the current player based on elapsed time and wrong guesses
-func (gs *GameSession) GetCurrentPlayerScore() int {
-	elapsedSeconds := gs.GetCurrentPlayerElapsedTime()
-	wrongGuesses := len(gs.Guesses) // All current guesses are wrong since we haven't found the correct answer yet
-	return CalculatePlayerScore(elapsedSeconds, wrongGuesses)
+// GetCurrentScore returns the current score based on total elapsed time
+func (gs *GameSession) GetCurrentScore() int {
+	elapsedSeconds := gs.GetTotalElapsedTime()
+	totalWrongGuesses := 0
+
+	// Count wrong guesses from all players
+	for _, guess := range gs.Guesses {
+		if !guess.IsCorrect {
+			totalWrongGuesses++
+		}
+	}
+
+	return CalculateGameScore(elapsedSeconds, totalWrongGuesses, gs.CurrentPlayerIndex)
 }
 
 // CheckCorrectGuess checks if the guessed player is correct
@@ -194,30 +225,36 @@ func (gs *GameSession) MoveToNextPlayer() bool {
 		return false // Game completed
 	}
 
-	// Reset for next player
+	// Reset guesses for next player (keep total game timer running)
 	gs.Guesses = make([]GuessResult, 0)
-	gs.CurrentPlayerStartTime = time.Now()
 
-	log.Printf("Session %s moved to player %d/%d",
-		gs.SessionID, gs.CurrentPlayerIndex+1, len(gs.SelectedPlayers))
+	// Debug: Show the current player details
+	currentPlayer := gs.GetCurrentPlayer()
+	elapsedSeconds := gs.GetTotalElapsedTime()
+	remainingSeconds := TotalGameTime - elapsedSeconds
+
+	if currentPlayer != nil {
+		log.Printf("Session %s moved to player %d/%d: %s (Team: %s, Role: %s, Age: %d) - Time remaining: %ds",
+			gs.SessionID, gs.CurrentPlayerIndex+1, len(gs.SelectedPlayers),
+			currentPlayer.PlayerUsername, currentPlayer.PlayerTeam, currentPlayer.PlayerRole, currentPlayer.PlayerAge,
+			remainingSeconds)
+	} else {
+		log.Printf("Session %s moved to player %d/%d but current player is nil!",
+			gs.SessionID, gs.CurrentPlayerIndex+1, len(gs.SelectedPlayers))
+	}
 
 	return true // More players remaining
 }
 
-// IsGameOver checks if the game should end (2 minutes elapsed for current player)
+// IsGameOver checks if the game should end (total time elapsed or all players completed)
 func (gs *GameSession) IsGameOver() bool {
 	if gs.IsCompleted {
 		return true
 	}
 
-	// Check if 2 minutes (120 seconds) have elapsed for current player
-	elapsedSeconds := gs.GetCurrentPlayerElapsedTime()
-	if elapsedSeconds >= 120 {
-		return true
-	}
-
-	// Check if max guesses reached
-	if len(gs.Guesses) >= MaxGuesses {
+	// Check if total game time has elapsed
+	elapsedSeconds := gs.GetTotalElapsedTime()
+	if elapsedSeconds >= TotalGameTime {
 		return true
 	}
 
@@ -246,7 +283,7 @@ func (gs *GameSession) CalculateFinalScore() int {
 
 	// Bonus for completing all players
 	if completedPlayers == len(gs.SelectedPlayers) {
-		completionBonus := 1000
+		completionBonus := 10000 // Much bigger bonus for completing all 20 players
 		gs.Score += completionBonus
 		log.Printf("Session %s completed all players! Bonus: %d points", gs.SessionID, completionBonus)
 	}
@@ -254,8 +291,8 @@ func (gs *GameSession) CalculateFinalScore() int {
 	return gs.Score
 }
 
-// completeSession marks the session as completed
-func (gs *GameSession) completeSession() {
+// CompleteSession marks the session as completed
+func (gs *GameSession) CompleteSession() {
 	gs.IsCompleted = true
 	now := time.Now()
 	gs.CompletionTime = &now
@@ -308,6 +345,12 @@ func ValidateGuess(session *GameSession, guessedPlayerName string) (*GuessResult
 		return nil, fmt.Errorf("no current target player")
 	}
 
+	// Debug: Show the guess being made
+	log.Printf("Session %s player %d/%d: Guessing '%s' vs target '%s' (Team: %s, Role: %s)",
+		session.SessionID, session.CurrentPlayerIndex+1, len(session.SelectedPlayers),
+		guessedPlayer.PlayerUsername, targetPlayer.PlayerUsername,
+		targetPlayer.PlayerTeam, targetPlayer.PlayerRole)
+
 	// Compare guess with target using detailed comparison
 	comparisons := comparePlayersDetailed(*guessedPlayer, *targetPlayer)
 	isCorrect := guessedPlayer.PlayerUsername == targetPlayer.PlayerUsername
@@ -315,6 +358,7 @@ func ValidateGuess(session *GameSession, guessedPlayerName string) (*GuessResult
 	// Create guess result
 	guessResult := GuessResult{
 		GuessedPlayer: *guessedPlayer,
+		TargetPlayer:  *targetPlayer,
 		Timestamp:     time.Now(),
 		Comparisons:   comparisons,
 		IsCorrect:     isCorrect,
@@ -456,34 +500,36 @@ func abs(x float64) float64 {
 	return x
 }
 
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // handleCorrectGuess processes a correct guess
 func (gs *GameSession) handleCorrectGuess() {
-	// Calculate elapsed time for this player
-	elapsedSeconds := int(time.Since(gs.CurrentPlayerStartTime).Seconds())
+	// Calculate current total elapsed time
+	totalElapsed := gs.GetTotalElapsedTime()
 
-	// Calculate wrong guesses (total guesses - 1 for the correct guess)
+	// Calculate wrong guesses for current player (total guesses - 1 for the correct guess)
 	wrongGuesses := len(gs.Guesses) - 1
 	if wrongGuesses < 0 {
 		wrongGuesses = 0
 	}
 
-	// Calculate score for this player using new scoring system
-	playerScore := CalculatePlayerScore(elapsedSeconds, wrongGuesses)
-	gs.Score += playerScore
+	// Award points for finding this player
+	playerPoints := CalculatePlayerPoints(totalElapsed, wrongGuesses)
+	gs.Score += playerPoints
 
-	// Move to next player
-	gs.CurrentPlayerIndex++
+	log.Printf("CORRECT GUESS in session %s! Player %d completed with %d wrong guesses. Points: %d (Total: %d, Time: %ds/%ds)",
+		gs.SessionID, gs.CurrentPlayerIndex+1, wrongGuesses, playerPoints, gs.Score, totalElapsed, TotalGameTime)
 
-	log.Printf("Correct guess in session %s! Player %d completed in %ds with %d wrong guesses. Score: %d (Total: %d)",
-		gs.SessionID, gs.CurrentPlayerIndex, elapsedSeconds, wrongGuesses, playerScore, gs.Score)
-
-	// Check if all players completed
-	if gs.CurrentPlayerIndex >= len(gs.SelectedPlayers) {
-		gs.completeSession()
-	} else {
-		// Reset guesses and start time for next player
-		gs.Guesses = make([]GuessResult, 0)
-		gs.CurrentPlayerStartTime = time.Now() // Reset timer for next player
+	// Move to next player using the proper function
+	if !gs.MoveToNextPlayer() {
+		// All players completed
+		gs.CompleteSession()
 	}
 }
 
@@ -494,7 +540,7 @@ func (gs *GameSession) handleMaxGuessesReached() {
 
 	// Move to next player or end session
 	if !gs.MoveToNextPlayer() {
-		gs.completeSession()
+		gs.CompleteSession()
 	}
 }
 
@@ -505,7 +551,7 @@ func (gs *GameSession) handleTimeLimit() {
 
 	// Move to next player or end session
 	if !gs.MoveToNextPlayer() {
-		gs.completeSession()
+		gs.CompleteSession()
 	}
 }
 
@@ -533,14 +579,14 @@ func GetSessionStats() map[string]interface{} {
 	}
 }
 
-// GetTimeRemaining returns the remaining time in seconds for the current player
+// GetTimeRemaining returns the remaining time in seconds for the total game
 func GetTimeRemaining(session *GameSession) int {
 	if session == nil {
 		return 0
 	}
 
-	elapsedSeconds := int(time.Since(session.CurrentPlayerStartTime).Seconds())
-	remainingSeconds := 120 - elapsedSeconds // 2 minutes = 120 seconds
+	elapsedSeconds := session.GetTotalElapsedTime()
+	remainingSeconds := TotalGameTime - elapsedSeconds
 
 	if remainingSeconds < 0 {
 		return 0
@@ -556,32 +602,4 @@ func GetCurrentPlayerGuesses(session *GameSession) int {
 	}
 
 	return len(session.Guesses)
-}
-
-// IsGameOver is a wrapper function for the session method
-func IsGameOver(session *GameSession) bool {
-	if session == nil {
-		return true
-	}
-
-	return session.IsGameOver()
-}
-
-// CheckCorrectGuess checks if the guessed player name matches the current target player
-func CheckCorrectGuess(session *GameSession, playerName string) bool {
-	if session == nil {
-		return false
-	}
-
-	targetPlayer := session.GetCurrentPlayer()
-	if targetPlayer == nil {
-		return false
-	}
-
-	guessedPlayer, exists := GetPlayerByName(playerName)
-	if !exists {
-		return false
-	}
-
-	return guessedPlayer.PlayerUsername == targetPlayer.PlayerUsername
 }

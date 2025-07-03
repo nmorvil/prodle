@@ -12,8 +12,13 @@ import (
 var templates *template.Template
 
 func init() {
-	InitializeGameData()
-	InitDatabase()
+	if err := InitializeGameData(); err != nil {
+		log.Fatalf("Failed to initialize game data: %v", err)
+	}
+
+	if err := InitDatabase(); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
 
 	// Parse HTML templates
 	var err error
@@ -27,7 +32,7 @@ func init() {
 func main() {
 	// Static file serving
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	http.Handle("/assets/teams/", http.StripPrefix("/assets/teams/", http.FileServer(http.Dir("assets/teams"))))
+	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 
 	// Main routes
 	http.HandleFunc("/", homeHandler)
@@ -38,6 +43,8 @@ func main() {
 	http.HandleFunc("/api/guess", guessHandler)
 	http.HandleFunc("/api/autocomplete", autocompleteHandler)
 	http.HandleFunc("/api/submit-score", submitScoreHandler)
+	http.HandleFunc("/api/end-game", endGameHandler)
+	http.HandleFunc("/api/config", configHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -173,8 +180,11 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("DEBUG: Guess request for sessionID: %s, playerName: %s", req.SessionID, req.PlayerName)
+
 	session, exists := GetSession(req.SessionID)
 	if !exists {
+		log.Printf("DEBUG: Session %s not found in active sessions", req.SessionID)
 		response := GuessResponse{
 			Success: false,
 			Message: "Session not found",
@@ -184,7 +194,10 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if IsGameOver(session) {
+	log.Printf("DEBUG: Found session %s, currentPlayer: %d/%d, isCompleted: %v",
+		req.SessionID, session.CurrentPlayerIndex+1, len(session.SelectedPlayers), session.IsCompleted)
+
+	if session.IsGameOver() {
 		response := GuessResponse{
 			Success:  false,
 			Message:  "Game session has ended",
@@ -193,6 +206,9 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
+
+	// Check if guess is correct BEFORE processing
+	isCorrect := session.CheckCorrectGuess(req.PlayerName)
 
 	result, err := ValidateGuess(session, req.PlayerName)
 	if err != nil {
@@ -206,7 +222,7 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isCorrect := CheckCorrectGuess(session, req.PlayerName)
+	// Get updated session state after processing the guess
 	timeLeft := GetTimeRemaining(session)
 
 	response := GuessResponse{
@@ -215,9 +231,13 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		Comparison: result,
 		Score:      session.Score,
 		TimeLeft:   timeLeft,
-		GameOver:   IsGameOver(session),
+		GameOver:   session.IsGameOver(),
 		NextPlayer: isCorrect || GetCurrentPlayerGuesses(session) >= 6,
 	}
+
+	// Add debug logging for response
+	log.Printf("Sending guess response for session %s: correct=%v, nextPlayer=%v, gameOver=%v, score=%d",
+		session.SessionID, isCorrect, response.NextPlayer, response.GameOver, session.Score)
 
 	json.NewEncoder(w).Encode(response)
 }
@@ -319,8 +339,13 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Debug: Log session state for score submission
+	log.Printf("DEBUG: Score submission for session %s - IsCompleted: %v, IsGameOver: %v, CurrentPlayer: %d/%d",
+		req.SessionID, session.IsCompleted, session.IsGameOver(), session.CurrentPlayerIndex+1, len(session.SelectedPlayers))
+
 	// Validate session is completed or game over
-	if !session.IsCompleted && !IsGameOver(session) {
+	if !session.IsCompleted && !session.IsGameOver() {
+		log.Printf("DEBUG: Rejecting score submission - session still active")
 		response := SubmitScoreResponse{
 			Success: false,
 			Message: "Game session is still active",
@@ -356,5 +381,111 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 		Message: "Score submitted successfully",
 	}
 
+	json.NewEncoder(w).Encode(response)
+}
+
+type EndGameRequest struct {
+	SessionID string `json:"sessionId"`
+}
+
+type EndGameResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
+
+func endGameHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var req EndGameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response := EndGameResponse{
+			Success: false,
+			Message: "Invalid request format",
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	if req.SessionID == "" {
+		response := EndGameResponse{
+			Success: false,
+			Message: "SessionID is required",
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Get session
+	session, exists := GetSession(req.SessionID)
+	if !exists {
+		response := EndGameResponse{
+			Success: false,
+			Message: "Session not found",
+		}
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Mark session as completed if not already
+	if !session.IsCompleted {
+		session.CompleteSession()
+		UpdateSession(session)
+		log.Printf("Session %s marked as completed via end-game API", req.SessionID)
+	}
+
+	response := EndGameResponse{
+		Success: true,
+		Message: "Game session ended successfully",
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+type GameConfig struct {
+	TotalGameTimeSeconds int `json:"totalGameTimeSeconds"`
+	MaxGuesses           int `json:"maxGuesses"`
+	PlayersPerSession    int `json:"playersPerSession"`
+}
+
+type ConfigResponse struct {
+	Success bool        `json:"success"`
+	Config  *GameConfig `json:"config,omitempty"`
+	Message string      `json:"message,omitempty"`
+}
+
+func configHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "GET" {
+		// Return current configuration
+		config := &GameConfig{
+			TotalGameTimeSeconds: TotalGameTime,
+			MaxGuesses:           MaxGuesses,
+			PlayersPerSession:    PlayersPerSession,
+		}
+
+		response := ConfigResponse{
+			Success: true,
+			Config:  config,
+		}
+
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// For now, only support GET
+	response := ConfigResponse{
+		Success: false,
+		Message: "Only GET method is supported for configuration",
+	}
+	w.WriteHeader(http.StatusMethodNotAllowed)
 	json.NewEncoder(w).Encode(response)
 }

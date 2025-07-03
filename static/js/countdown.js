@@ -68,13 +68,6 @@ class CountdownManager {
         }, 1000);
     }
 
-    /**
-     * Cancel the countdown (useful if user navigates away)
-     */
-    cancel() {
-        this.hideCountdown();
-        this.onComplete = null;
-    }
 }
 
 // Global countdown manager instance
@@ -92,13 +85,31 @@ document.addEventListener('DOMContentLoaded', function() {
             sessionInput.value = sessionId;
         }
 
+        // Setup initial game state
+        if (window.gameManager) {
+            window.gameManager.setupInitialState();
+        }
+
         // Start countdown, then start the game timer
         window.countdownManager.start(() => {
-            console.log('Countdown finished, starting game timer...');
+            console.log('Countdown finished, starting 2-minute game timer...');
             
-            // Start the game timer if it exists
+            // Start the single 2-minute timer for entire game
             if (window.timerManager) {
-                window.timerManager.start();
+                window.timerManager.start(
+                    () => {
+                        // Time up callback - end the game
+                        if (window.gameManager) {
+                            window.gameManager.handleTimeUp();
+                        }
+                    },
+                    (timeLeft) => {
+                        // Tick callback - update any UI if needed
+                        if (window.gameManager) {
+                            window.gameManager.handleTimerTick(timeLeft);
+                        }
+                    }
+                );
             }
             
             // Enable game controls
@@ -114,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 guessButton.disabled = false;
             }
 
-            // Initialize game functionality
+            // Initialize game functionality (without disabling controls)
             if (window.gameManager) {
                 window.gameManager.initialize();
             }
@@ -126,16 +137,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Handle page visibility changes to pause/resume countdown
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        // Page is hidden, could pause countdown here if needed
-        console.log('Page hidden during countdown');
-    } else {
-        // Page is visible again
-        console.log('Page visible during countdown');
-    }
-});
 
 // Prevent accidental page refresh during countdown
 window.addEventListener('beforeunload', function(e) {

@@ -1,19 +1,42 @@
-// Timer system for Prodle game - 2 minute countdown per player
+// Timer system for Prodle game - Total game countdown timer
 class TimerManager {
     constructor() {
         this.timerElement = document.getElementById('timer');
-        this.timeLeft = 120; // 2 minutes in seconds
+        this.totalGameTime = 120; // Default 2 minutes for entire game
+        this.timeLeft = this.totalGameTime;
         this.intervalId = null;
         this.isRunning = false;
         this.onTimeUp = null;
         this.onTick = null;
+        
+        // Load game config to get actual timer duration
+        this.loadGameConfig();
         
         // Initialize display
         this.updateDisplay();
     }
 
     /**
-     * Start the 2-minute countdown timer
+     * Load game configuration from backend
+     */
+    async loadGameConfig() {
+        try {
+            const response = await fetch('/api/config');
+            const data = await response.json();
+            
+            if (data.success && data.config) {
+                this.totalGameTime = data.config.totalGameTimeSeconds;
+                this.timeLeft = this.totalGameTime;
+                console.log(`DEBUG: Loaded game config - Total time: ${this.totalGameTime} seconds`);
+                this.updateDisplay();
+            }
+        } catch (error) {
+            console.error('Failed to load game config, using default 120 seconds:', error);
+        }
+    }
+
+    /**
+     * Start the total game countdown timer
      * @param {Function} onTimeUp - Callback when timer reaches 0
      * @param {Function} onTick - Callback on each second tick
      */
@@ -27,7 +50,7 @@ class TimerManager {
         this.onTick = onTick;
         this.isRunning = true;
         
-        console.log('Starting 2-minute timer...');
+        console.log(`DEBUG: Starting total game timer - ${this.totalGameTime} seconds...`);
         
         // Start the interval
         this.intervalId = setInterval(() => {
@@ -51,14 +74,14 @@ class TimerManager {
     }
 
     /**
-     * Reset timer to 2 minutes for next player
+     * Reset timer to full game time (for new game)
      */
     reset() {
         this.stop();
-        this.timeLeft = 120;
+        this.timeLeft = this.totalGameTime;
         this.updateDisplay();
         this.removeWarningClass();
-        console.log('Timer reset for next player');
+        console.log(`DEBUG: Timer reset to ${this.totalGameTime} seconds for new game`);
     }
 
     /**
@@ -109,7 +132,7 @@ class TimerManager {
      */
     handleTimeUp() {
         this.stop();
-        this.addWarningClass();
+        this.addCriticalClass();
         
         console.log('Time is up!');
         
@@ -135,11 +158,15 @@ class TimerManager {
         const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         this.timerElement.textContent = formattedTime;
         
-        // Update color based on time remaining
+        // Update color and animation based on time remaining
+        this.timerElement.classList.remove('warning', 'critical');
+        
         if (this.timeLeft <= 10) {
             this.timerElement.style.color = '#FF0000';
+            this.timerElement.classList.add('critical');
         } else if (this.timeLeft <= 30) {
             this.timerElement.style.color = '#FF4444';
+            this.timerElement.classList.add('warning');
         } else {
             this.timerElement.style.color = '#FF6B35';
         }
@@ -155,11 +182,20 @@ class TimerManager {
     }
 
     /**
+     * Add critical class for urgent visual indication
+     */
+    addCriticalClass() {
+        if (this.timerElement) {
+            this.timerElement.classList.add('critical');
+        }
+    }
+
+    /**
      * Remove warning class
      */
     removeWarningClass() {
         if (this.timerElement) {
-            this.timerElement.classList.remove('warning');
+            this.timerElement.classList.remove('warning', 'critical');
         }
     }
 
@@ -171,15 +207,6 @@ class TimerManager {
         return this.timeLeft;
     }
 
-    /**
-     * Get formatted time left as string
-     * @returns {string} Formatted time (M:SS)
-     */
-    getFormattedTimeLeft() {
-        const minutes = Math.floor(this.timeLeft / 60);
-        const seconds = this.timeLeft % 60;
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
 
     /**
      * Check if timer is currently running
@@ -189,24 +216,6 @@ class TimerManager {
         return this.isRunning;
     }
 
-    /**
-     * Set a custom time (useful for testing or special cases)
-     * @param {number} seconds - Time in seconds
-     */
-    setTime(seconds) {
-        this.timeLeft = Math.max(0, seconds);
-        this.updateDisplay();
-    }
-
-    /**
-     * Add time to current timer (for bonuses, etc.)
-     * @param {number} seconds - Seconds to add
-     */
-    addTime(seconds) {
-        this.timeLeft = Math.max(0, this.timeLeft + seconds);
-        this.updateDisplay();
-        console.log(`Added ${seconds} seconds to timer`);
-    }
 }
 
 // Global timer manager instance
@@ -238,7 +247,3 @@ window.addEventListener('beforeunload', function(e) {
     }
 });
 
-// Initialize timer when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Timer system initialized');
-});

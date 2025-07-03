@@ -4,838 +4,83 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prodle - Jeu en cours</title>
-    <link rel="stylesheet" href="/static/css/game.css">
-    <style>
-        @font-face {
-            font-family: 'ArticulatCF';
-            src: url('/assets/fonts/ArticulatCF.woff2') format('woff2');
-            font-weight: normal;
-            font-style: normal;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'ArticulatCF', Arial, sans-serif;
-            background-image: url('/assets/background/bg_gtlv2.png');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            background-repeat: no-repeat;
-            min-height: 100vh;
-            color: white;
-            overflow-x: hidden;
-        }
-
-        .game-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 2rem;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(10px);
-        }
-
-        .game-title {
-            font-size: 2rem;
-            font-weight: bold;
-            background: linear-gradient(45deg, #FFD700, #FFA500);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .timer-score {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-        }
-
-        .timer {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #FF6B35;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 0.5rem 1rem;
-            border-radius: 10px;
-            min-width: 80px;
-            text-align: center;
-        }
-
-        .timer.warning {
-            color: #FF4444;
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        .score {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #32CD32;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 0.5rem 1rem;
-            border-radius: 10px;
-        }
-
-        .game-container {
-            display: flex;
-            min-height: calc(100vh - 80px);
-            gap: 1rem;
-            padding: 1rem;
-        }
-
-        .main-game {
-            flex: 1;
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 20px;
-            padding: 2rem;
-            backdrop-filter: blur(10px);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .sidebar {
-            width: 300px;
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 20px;
-            padding: 1.5rem;
-            backdrop-filter: blur(10px);
-        }
-
-        .player-info {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .player-counter {
-            font-size: 1.5rem;
-            color: #FFD700;
-            margin-bottom: 1rem;
-        }
-
-        /* Enhanced Search Bar */
-        .search-container {
-            position: relative;
-            max-width: 500px;
-            margin: 0 auto 2rem auto;
-        }
-
-        .guess-input {
-            width: 100%;
-            padding: 1rem 1.5rem;
-            font-size: 1.2rem;
-            border: 2px solid #FF6B35;
-            border-radius: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            backdrop-filter: blur(5px);
-            font-family: 'ArticulatCF', Arial, sans-serif;
-            transition: all 0.3s ease;
-        }
-
-        .guess-input::placeholder {
-            color: rgba(255, 255, 255, 0.6);
-            font-style: italic;
-        }
-
-        .guess-input:focus {
-            outline: none;
-            border-color: #FFD700;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .autocomplete-list {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.95);
-            border-radius: 0 0 15px 15px;
-            max-height: 250px;
-            overflow-y: auto;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 107, 53, 0.3);
-            border-top: none;
-        }
-
-        .autocomplete-item {
-            padding: 1rem 1.5rem;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            font-size: 1rem;
-        }
-
-        .autocomplete-item:hover,
-        .autocomplete-item.selected {
-            background: rgba(255, 107, 53, 0.3);
-            color: #FFD700;
-        }
-
-        .autocomplete-item:last-child {
-            border-bottom: none;
-            border-radius: 0 0 15px 15px;
-        }
-
-        .guess-button {
-            background: linear-gradient(45deg, #FF6B35, #F7931E);
-            border: none;
-            padding: 1rem 3rem;
-            font-size: 1.2rem;
-            font-family: 'ArticulatCF', Arial, sans-serif;
-            color: white;
-            border-radius: 15px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: bold;
-            margin: 0 auto 2rem auto;
-            display: block;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .guess-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
-        }
-
-        .guess-button:disabled {
-            background: #666;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        /* Player Info Display Cards */
-        .current-player-display {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
-        }
-
-        .current-player-display.revealed {
-            border-color: #32CD32;
-            background: rgba(50, 205, 50, 0.1);
-        }
-
-        .player-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .player-attribute {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 1rem;
-            border-radius: 10px;
-            text-align: center;
-            min-height: 80px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-
-        .player-attribute.correct {
-            background: rgba(34, 139, 34, 0.3);
-            border: 2px solid #32CD32;
-        }
-
-        .player-attribute.partial {
-            background: rgba(255, 193, 7, 0.3);
-            border: 2px solid #FFC107;
-        }
-
-        .player-attribute.incorrect {
-            background: rgba(108, 117, 125, 0.3);
-            border: 2px solid #6C757D;
-        }
-
-        .attribute-label {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .attribute-value {
-            font-size: 1rem;
-            font-weight: bold;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .team-image {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .champion-image {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .country-flag {
-            font-size: 1.2rem;
-        }
-
-        /* Arrow Indicators */
-        .arrow-indicator {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
-
-        .arrow-up {
-            color: #FF4444;
-        }
-
-        .arrow-down {
-            color: #4169E1;
-        }
-
-        /* Guess History */
-        .guess-history {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 1.5rem;
-            overflow-y: auto;
-            max-height: 500px;
-        }
-
-        .guess-history h3 {
-            color: #FFD700;
-            margin-bottom: 1rem;
-            text-align: center;
-            font-size: 1.2rem;
-        }
-
-        .guess-result {
-            background: rgba(255, 255, 255, 0.1);
-            margin-bottom: 1rem;
-            padding: 1rem;
-            border-radius: 10px;
-            border-left: 4px solid #FF6B35;
-            transition: all 0.3s ease;
-        }
-
-        .guess-result.correct-guess {
-            border-left-color: #32CD32;
-            background: rgba(50, 205, 50, 0.1);
-        }
-
-        .guess-result-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-
-        .guess-player-name {
-            font-weight: bold;
-            font-size: 1.1rem;
-        }
-
-        .guess-result-status {
-            font-size: 0.9rem;
-            font-weight: bold;
-        }
-
-        .guess-result-status.correct {
-            color: #32CD32;
-        }
-
-        .guess-result-status.incorrect {
-            color: #FF4444;
-        }
-
-        .guess-attributes {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-        }
-
-        .guess-attribute {
-            font-size: 0.8rem;
-            padding: 0.3rem;
-            border-radius: 5px;
-            text-align: center;
-        }
-
-        /* Countdown overlay */
-        .countdown-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            backdrop-filter: blur(10px);
-        }
-
-        .countdown-number {
-            font-size: 8rem;
-            font-weight: bold;
-            color: #FFD700;
-            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
-            animation: countdownFade 1s ease-in-out;
-        }
-
-        @keyframes countdownFade {
-            0% {
-                opacity: 0;
-                transform: scale(0.5);
-            }
-            50% {
-                opacity: 1;
-                transform: scale(1.2);
-            }
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        .leaderboard-sidebar h3 {
-            color: #FFD700;
-            text-align: center;
-            margin-bottom: 1rem;
-            font-size: 1.2rem;
-        }
-
-        .leaderboard-entry {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            font-size: 0.9rem;
-        }
-
-        .leaderboard-entry:last-child {
-            border-bottom: none;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Success overlay styles */
-        .success-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 3000;
-            backdrop-filter: blur(10px);
-        }
-
-        .success-content {
-            text-align: center;
-            animation: successBounce 1s ease-out;
-        }
-
-        .success-message {
-            font-size: 4rem;
-            font-weight: bold;
-            color: #32CD32;
-            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
-            margin-bottom: 1rem;
-        }
-
-        .success-icon {
-            font-size: 6rem;
-            animation: iconRotate 1s ease-out;
-        }
-
-        @keyframes successBounce {
-            0% {
-                opacity: 0;
-                transform: scale(0.3) translateY(-50px);
-            }
-            50% {
-                opacity: 1;
-                transform: scale(1.1) translateY(0);
-            }
-            100% {
-                opacity: 1;
-                transform: scale(1) translateY(0);
-            }
-        }
-
-        @keyframes iconRotate {
-            0% {
-                transform: rotate(-30deg) scale(0.5);
-            }
-            100% {
-                transform: rotate(0deg) scale(1);
-            }
-        }
-
-        /* End game overlay styles */
-        .end-game-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 4000;
-            backdrop-filter: blur(15px);
-        }
-
-        .end-game-content {
-            background: rgba(0, 0, 0, 0.9);
-            padding: 3rem;
-            border-radius: 20px;
-            text-align: center;
-            max-width: 500px;
-            width: 90%;
-            border: 2px solid #FFD700;
-            animation: slideUp 0.5s ease-out;
-        }
-
-        @keyframes slideUp {
-            0% {
-                opacity: 0;
-                transform: translateY(50px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .end-game-title {
-            font-size: 2.5rem;
-            color: #FFD700;
-            margin-bottom: 1.5rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-        }
-
-        .final-score {
-            font-size: 2rem;
-            color: #32CD32;
-            font-weight: bold;
-            margin-bottom: 1rem;
-        }
-
-        .players-completed {
-            font-size: 1.2rem;
-            color: rgba(255, 255, 255, 0.8);
-            margin-bottom: 2rem;
-        }
-
-        .score-form h3 {
-            color: #FFD700;
-            margin-bottom: 1rem;
-            font-size: 1.3rem;
-        }
-
-        #username-input {
-            width: 100%;
-            padding: 1rem;
-            font-size: 1.1rem;
-            border: 2px solid #FF6B35;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            font-family: 'ArticulatCF', Arial, sans-serif;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-
-        #username-input::placeholder {
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        #username-input:focus {
-            outline: none;
-            border-color: #FFD700;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-        }
-
-        .end-game-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .submit-score-btn,
-        .restart-btn {
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
-            font-family: 'ArticulatCF', Arial, sans-serif;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .submit-score-btn {
-            background: linear-gradient(45deg, #32CD32, #228B22);
-            color: white;
-        }
-
-        .submit-score-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(50, 205, 50, 0.4);
-        }
-
-        .submit-score-btn:disabled {
-            background: #666;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .restart-btn {
-            background: linear-gradient(45deg, #FF6B35, #F7931E);
-            color: white;
-        }
-
-        .restart-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.4);
-        }
-
-        .submitted-message {
-            font-size: 1.3rem;
-            color: #32CD32;
-            margin-bottom: 2rem;
-            font-weight: bold;
-        }
-
-        /* Loading overlay styles */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 5000;
-            backdrop-filter: blur(10px);
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255, 215, 0, 0.3);
-            border-top: 4px solid #FFD700;
-            border-radius: 50%;
-            animation: spinLoader 1s linear infinite;
-            margin-bottom: 1rem;
-        }
-
-        @keyframes spinLoader {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .loading-text {
-            color: #FFD700;
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 1024px) {
-            .game-container {
-                flex-direction: column;
-            }
-            
-            .sidebar {
-                width: 100%;
-            }
-            
-            .timer-score {
-                gap: 1rem;
-            }
-
-            .player-grid {
-                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            }
-        }
-
-        @media (max-width: 768px) {
-            .game-header {
-                padding: 1rem;
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .game-title {
-                font-size: 1.5rem;
-            }
-            
-            .countdown-number {
-                font-size: 4rem;
-            }
-
-            .player-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .success-message {
-                font-size: 2.5rem;
-            }
-
-            .success-icon {
-                font-size: 4rem;
-            }
-
-            .end-game-content {
-                padding: 2rem;
-                margin: 1rem;
-            }
-
-            .end-game-title {
-                font-size: 2rem;
-            }
-
-            .final-score {
-                font-size: 1.5rem;
-            }
-
-            .end-game-buttons {
-                flex-direction: column;
-            }
-
-            .submit-score-btn,
-            .restart-btn {
-                width: 100%;
-                padding: 1rem;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/prodle.css">
 </head>
 <body>
+    <!-- Game Header -->
     <div class="game-header">
-        <div class="game-title">Prodle</div>
-        <div class="timer-score">
-            <div class="timer" id="timer">2:00</div>
-            <div class="score" id="score">Score: 0</div>
-        </div>
+        <h1 class="game-title">PRODLE</h1>
+        <div class="attempts-counter" id="attempts-counter">Tentatives: 1/10</div>
+    </div>
+    
+    <!-- Game Info (Timer, Score, Player Counter) -->
+    <div class="game-info">
+        <div class="timer" id="timer">2:00</div>
+        <div class="score" id="score">Score: 0</div>
+        <div class="player-counter" id="player-counter">Joueur 1/20</div>
     </div>
 
     <div class="game-container">
-        <div class="main-game">
-            <div class="player-info">
-                <div class="player-counter" id="player-counter">Joueur 1/20</div>
-            </div>
-            
-            <!-- Enhanced Search Bar -->
+        <!-- Input Section -->
+        <div class="input-section">
             <div class="search-container">
                 <input 
                     type="text" 
                     class="guess-input" 
                     id="guess-input" 
-                    placeholder="Entrez le nom d'un joueur..."
+                    placeholder="Entrez le nom du joueur..."
                     autocomplete="off"
                 >
-                <div class="autocomplete-list hidden" id="autocomplete-list"></div>
-            </div>
-            
-            <button class="guess-button" id="guess-button" onclick="makeGuess()">
-                Deviner
-            </button>
-
-            <!-- Current Player Display (revealed after correct guess) -->
-            <div class="current-player-display hidden" id="current-player-display">
-                <h3>Joueur Trouvé!</h3>
-                <div class="player-grid" id="current-player-grid">
-                    <!-- Player attributes will be displayed here -->
-                </div>
-            </div>
-
-            <!-- Guess History -->
-            <div class="guess-history" id="guess-history">
-                <h3>Historique des Tentatives</h3>
-                <div id="guess-list">
-                    <!-- Guess results will be displayed here -->
-                </div>
+                <div class="autocomplete-dropdown hidden" id="autocomplete-list"></div>
             </div>
         </div>
 
-        <div class="sidebar">
-            <div class="leaderboard-sidebar">
-                <h3>Top 10</h3>
-                <div id="sidebar-leaderboard">
-                    <!-- Leaderboard will be loaded here -->
-                </div>
+        <!-- Game Grid -->
+        <div class="game-grid">
+            <!-- Column Headers -->
+            <div class="grid-headers">
+                <div class="header-cell">Joueur</div>
+                <div class="header-cell">Équipe</div>
+                <div class="header-cell">Âge</div>
+                <div class="header-cell">Rôle</div>
+                <div class="header-cell">Pays</div>
+                <div class="header-cell">KDA</div>
+                <div class="header-cell">Champion</div>
+            </div>
+
+            <!-- Guess Rows -->
+            <div class="guess-rows" id="guess-rows">
+                <!-- Guess rows will be dynamically added here -->
+            </div>
+        </div>
+
+        <!-- Current Player Display (shown after correct guess) -->
+        <div class="current-player-display hidden" id="current-player-display">
+            <h3>🎉 Joueur Trouvé!</h3>
+            <div class="current-player-grid" id="current-player-grid">
+                <!-- Player attributes will be displayed here -->
             </div>
         </div>
     </div>
 
     <!-- Countdown overlay -->
-    <div class="countdown-overlay" id="countdown-overlay">
-        <div class="countdown-number" id="countdown-number">3</div>
+    <div class="overlay hidden" id="countdown-overlay">
+        <div class="overlay-content">
+            <div class="countdown-number" id="countdown-number">3</div>
+        </div>
     </div>
 
     <!-- Success overlay for correct guesses -->
-    <div class="success-overlay hidden" id="success-overlay">
-        <div class="success-content">
+    <div class="overlay hidden" id="success-overlay">
+        <div class="overlay-content">
             <div class="success-message">Bravo!</div>
             <div class="success-icon">🎉</div>
         </div>
     </div>
 
     <!-- End game overlay -->
-    <div class="end-game-overlay hidden" id="end-game-overlay">
-        <div class="end-game-content">
+    <div class="overlay hidden" id="end-game-overlay">
+        <div class="overlay-content">
             <h2 class="end-game-title">Jeu Terminé!</h2>
             <div class="final-score" id="final-score">Score Final: 0</div>
             <div class="players-completed" id="players-completed">Joueurs Trouvés: 0/20</div>
@@ -844,6 +89,7 @@
                 <h3>Enregistrer votre Score</h3>
                 <input 
                     type="text" 
+                    class="username-input"
                     id="username-input" 
                     placeholder="Entrez votre nom..." 
                     maxlength="50"
@@ -869,9 +115,11 @@
     </div>
 
     <!-- Loading overlay -->
-    <div class="loading-overlay hidden" id="loading-overlay">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Chargement...</div>
+    <div class="overlay hidden" id="loading-overlay">
+        <div class="overlay-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Chargement...</div>
+        </div>
     </div>
 
     <!-- Hidden session storage -->

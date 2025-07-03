@@ -1,0 +1,714 @@
+/* Prodle Game - Exact Design Match */
+
+/* ============= FONT DECLARATIONS ============= */
+@font-face {
+    font-family: 'ArticulatCF';
+    src: url('/assets/fonts/ArticulatCF.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* ============= CSS VARIABLES ============= */
+:root {
+    /* Exact colors from screenshot */
+    --bg-primary: #4A5568;
+    --bg-secondary: #2D3748;
+    --bg-card: #4A5568;
+    --text-white: #FFFFFF;
+    --text-gray: #A0AEC0;
+    --gold: #D69E2E;
+    --input-bg: #2D3748;
+    --input-border: #4A5568;
+    
+    /* Wordle colors */
+    --correct-green: #68D391;
+    --partial-yellow: #F6E05E;
+    --wrong-gray: #4A5568;
+    --empty-gray: #2D3748;
+    
+    /* Layout */
+    --border-radius: 8px;
+    --transition: all 0.2s ease;
+}
+
+/* ============= GLOBAL STYLES ============= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'ArticulatCF', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-primary) url('/assets/background/bg_gtlv2.png') center/cover no-repeat fixed;
+    color: var(--text-white);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+}
+
+/* ============= HEADER ============= */
+.game-header {
+    width: 100%;
+    text-align: center;
+    padding: 40px 20px 20px 20px;
+}
+
+.game-title {
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--text-white);
+    letter-spacing: 8px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+}
+
+.attempts-counter {
+    font-size: 18px;
+    color: var(--gold);
+    font-weight: 500;
+    margin-bottom: 40px;
+}
+
+/* ============= GAME CONTAINER ============= */
+.game-container {
+    width: 100%;
+    max-width: 800px;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* ============= INPUT SECTION ============= */
+.input-section {
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 30px;
+}
+
+.search-container {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.guess-input {
+    width: 100%;
+    padding: 16px 20px;
+    font-size: 16px;
+    font-family: inherit;
+    background: var(--input-bg);
+    color: var(--text-white);
+    border: 2px solid var(--input-border);
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+    outline: none;
+}
+
+.guess-input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold);
+}
+
+.guess-input::placeholder {
+    color: var(--text-gray);
+    font-style: italic;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--input-bg);
+    border: 2px solid var(--input-border);
+    border-top: none;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.autocomplete-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: var(--transition);
+    border-bottom: 1px solid var(--input-border);
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.selected {
+    background: var(--bg-card);
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-highlight {
+    background: var(--gold);
+    color: var(--bg-primary);
+    font-weight: bold;
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+.guess-button {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-family: inherit;
+    font-weight: 600;
+    background: var(--gold);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.guess-button:hover:not(:disabled) {
+    background: #E69C2F;
+    transform: translateY(-1px);
+}
+
+.guess-button:disabled {
+    background: var(--wrong-gray);
+    color: var(--text-gray);
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ============= GAME GRID ============= */
+.game-grid {
+    width: 100%;
+    max-width: 800px;
+}
+
+.grid-headers {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+
+.header-cell {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-white);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 4px;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+}
+
+.guess-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.guess-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: slideIn 0.3s ease forwards;
+}
+
+.guess-square {
+    aspect-ratio: 1;
+    min-height: 80px;
+    background: var(--empty-gray);
+    border: 2px solid var(--input-border);
+    border-radius: var(--border-radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    transition: all 0.6s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Square Colors - Exact match from screenshot */
+.guess-square.correct {
+    background: var(--correct-green);
+    border-color: var(--correct-green);
+    color: var(--bg-primary);
+}
+
+.guess-square.partial {
+    background: var(--partial-yellow);
+    border-color: var(--partial-yellow);
+    color: var(--bg-primary);
+}
+
+.guess-square.wrong {
+    background: var(--wrong-gray);
+    border-color: var(--wrong-gray);
+    color: var(--text-white);
+}
+
+/* Square Content */
+.square-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+}
+
+.square-image {
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-bottom: 4px;
+}
+
+.square-text {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.square-secondary {
+    font-size: 10px;
+    font-weight: 400;
+    opacity: 0.8;
+    line-height: 1.1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Country Flag */
+.country-flag {
+    font-size: 20px;
+    margin-bottom: 2px;
+}
+
+/* Arrow indicators */
+.arrow-indicator {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    opacity: 0.8;
+}
+
+/* ============= GAME INFO ============= */
+.game-info {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 15px;
+    z-index: 100;
+}
+
+.timer, .score, .player-counter {
+    background: var(--bg-secondary);
+    padding: 8px 16px;
+    border-radius: var(--border-radius);
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid var(--input-border);
+}
+
+.timer {
+    color: var(--gold);
+}
+
+.timer.warning {
+    color: #F56565;
+    animation: pulse 1s infinite;
+}
+
+.timer.critical {
+    color: #E53E3E;
+    animation: pulse-critical 0.6s infinite;
+}
+
+.score {
+    color: var(--correct-green);
+}
+
+.player-counter {
+    color: var(--text-gray);
+}
+
+/* ============= OVERLAYS ============= */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+}
+
+.overlay-content {
+    background: var(--bg-secondary);
+    border: 2px solid var(--input-border);
+    border-radius: var(--border-radius);
+    padding: 40px;
+    text-align: center;
+    max-width: 90%;
+    max-height: 90%;
+    overflow-y: auto;
+}
+
+/* Countdown */
+.countdown-number {
+    font-size: 120px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+    animation: countdownPulse 1s ease-in-out;
+}
+
+/* Success Message */
+.success-message {
+    font-size: 48px;
+    font-weight: bold;
+    color: var(--correct-green);
+    margin-bottom: 20px;
+}
+
+.success-icon {
+    font-size: 64px;
+    animation: bounce 1s ease;
+}
+
+/* End Game */
+.end-game-title {
+    font-size: 36px;
+    color: var(--gold);
+    margin-bottom: 20px;
+    font-weight: 700;
+}
+
+.final-score {
+    font-size: 32px;
+    color: var(--correct-green);
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.players-completed {
+    font-size: 18px;
+    color: var(--text-gray);
+    margin-bottom: 30px;
+}
+
+.username-input {
+    width: 100%;
+    max-width: 300px;
+    padding: 16px;
+    font-size: 16px;
+    font-family: inherit;
+    background: var(--input-bg);
+    color: var(--text-white);
+    border: 2px solid var(--input-border);
+    border-radius: var(--border-radius);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.username-input:focus {
+    outline: none;
+    border-color: var(--gold);
+}
+
+.end-game-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.submit-score-btn, .restart-btn {
+    padding: 16px 32px;
+    font-size: 16px;
+    font-family: inherit;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.submit-score-btn {
+    background: var(--correct-green);
+    color: var(--bg-primary);
+}
+
+.submit-score-btn:hover:not(:disabled) {
+    background: #48BB78;
+}
+
+.restart-btn {
+    background: var(--gold);
+    color: var(--bg-primary);
+}
+
+.restart-btn:hover {
+    background: #E69C2F;
+}
+
+/* ============= CURRENT PLAYER REVEAL ============= */
+.current-player-display {
+    width: 100%;
+    max-width: 800px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--correct-green);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    animation: slideIn 0.5s ease;
+}
+
+.current-player-display h3 {
+    text-align: center;
+    color: var(--correct-green);
+    margin-bottom: 15px;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.current-player-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 8px;
+}
+
+/* ============= LOADING STATES ============= */
+.loading-overlay {
+    background: rgba(0, 0, 0, 0.9);
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--input-border);
+    border-top: 4px solid var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+.loading-text {
+    color: var(--gold);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* ============= ERROR MESSAGES ============= */
+.error-message {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #E53E3E;
+    color: var(--text-white);
+    padding: 16px 24px;
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease;
+}
+
+/* ============= ANIMATIONS ============= */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateX(-50%) translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+@keyframes pulse-critical {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes countdownPulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes bounce {
+    0%, 20%, 60%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-20px);
+    }
+    80% {
+        transform: translateY(-10px);
+    }
+}
+
+/* ============= RESPONSIVE DESIGN ============= */
+@media (max-width: 768px) {
+    .game-title {
+        font-size: 32px;
+        letter-spacing: 4px;
+    }
+    
+    .grid-headers,
+    .guess-row,
+    .current-player-grid {
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    }
+    
+    .guess-square {
+        min-height: 60px;
+    }
+    
+    .square-image {
+        height: 32px;
+    }
+    
+    .square-text {
+        font-size: 10px;
+    }
+    
+    .square-secondary {
+        font-size: 8px;
+    }
+    
+    .game-info {
+        position: relative;
+        top: auto;
+        right: auto;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    
+    .countdown-number {
+        font-size: 80px;
+    }
+    
+    .end-game-buttons {
+        flex-direction: column;
+    }
+    
+    .submit-score-btn, .restart-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .game-container {
+        padding: 0 10px;
+    }
+    
+    .grid-headers,
+    .guess-row,
+    .current-player-grid {
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+        gap: 4px;
+    }
+    
+    .guess-square {
+        min-height: 50px;
+        padding: 4px;
+    }
+    
+    .square-image {
+        height: 28px;
+    }
+    
+    .header-cell {
+        font-size: 11px;
+        padding: 6px 2px;
+    }
+}
+
+/* ============= UTILITY CLASSES ============= */
+.hidden {
+    display: none !important;
+}
+
+.text-center {
+    text-align: center;
+}

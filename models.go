@@ -39,6 +39,7 @@ const (
 // GuessResult contains the result of a player guess with comparison results
 type GuessResult struct {
 	GuessedPlayer Player                      `json:"guessed_player"`
+	TargetPlayer  Player                      `json:"target_player"`
 	Timestamp     time.Time                   `json:"timestamp"`
 	Comparisons   map[string]ComparisonResult `json:"comparisons"`
 	IsCorrect     bool                        `json:"is_correct"`
@@ -46,15 +47,14 @@ type GuessResult struct {
 
 // GameSession represents an individual game session
 type GameSession struct {
-	SessionID              string        `json:"session_id"`
-	SelectedPlayers        []Player      `json:"selected_players"` // 20 players for the session
-	CurrentPlayerIndex     int           `json:"current_player_index"`
-	Score                  int           `json:"score"`
-	StartTime              time.Time     `json:"start_time"`                // Session start time
-	CurrentPlayerStartTime time.Time     `json:"current_player_start_time"` // Current player start time
-	Guesses                []GuessResult `json:"guesses"`
-	IsCompleted            bool          `json:"is_completed"`
-	CompletionTime         *time.Time    `json:"completion_time,omitempty"`
+	SessionID          string        `json:"session_id"`
+	SelectedPlayers    []Player      `json:"selected_players"` // 20 players for the session
+	CurrentPlayerIndex int           `json:"current_player_index"`
+	Score              int           `json:"score"`
+	StartTime          time.Time     `json:"start_time"` // Total game start time
+	Guesses            []GuessResult `json:"guesses"`
+	IsCompleted        bool          `json:"is_completed"`
+	CompletionTime     *time.Time    `json:"completion_time,omitempty"`
 }
 
 // LeaderboardEntry represents a single entry in the leaderboard

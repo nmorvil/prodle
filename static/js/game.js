@@ -16,10 +16,9 @@ class GameManager {
         this.guessButton = document.getElementById('guess-button');
         this.scoreElement = document.getElementById('score');
         this.playerCounterElement = document.getElementById('player-counter');
-        this.guessHistoryElement = document.getElementById('guess-list');
+        this.attemptsCounterElement = document.getElementById('attempts-counter');
+        this.guessRowsElement = document.getElementById('guess-rows');
         this.autocompleteList = document.getElementById('autocomplete-list');
-        this.currentPlayerDisplay = document.getElementById('current-player-display');
-        this.currentPlayerGrid = document.getElementById('current-player-grid');
         
         // Overlay elements
         this.successOverlay = document.getElementById('success-overlay');
@@ -35,6 +34,8 @@ class GameManager {
         // Autocomplete
         this.selectedIndex = -1;
         this.autocompleteResults = [];
+        this.autocompleteDebounceTimer = null;
+        this.debounceDelay = 300; // milliseconds
         
         // Country flag mapping
         this.countryFlags = {
@@ -69,15 +70,22 @@ class GameManager {
     }
 
     /**
-     * Initialize the game
+     * Initialize the game for first time
      */
     initialize() {
-        this.sessionId = document.getElementById('session-id').value;
-        this.isGameActive = true;
+        // Get session ID from sessionStorage (set when starting game from index page)
+        this.sessionId = sessionStorage.getItem('sessionId') || document.getElementById('session-id').value;
         
-        // Disable controls initially (enabled after countdown)
-        this.guessInput.disabled = true;
-        this.guessButton.disabled = true;
+        if (!this.sessionId) {
+            console.error('No session ID found! Redirecting to home page.');
+            window.location.href = '/';
+            return;
+        }
+        
+        // Update the hidden input for other functions that might need it
+        document.getElementById('session-id').value = this.sessionId;
+        
+        this.isGameActive = true;
         
         // Setup timer callbacks
         window.timerManager.onTimeUp = () => this.handleTimeUp();
@@ -86,7 +94,38 @@ class GameManager {
         // Load initial leaderboard
         this.loadLeaderboard();
         
-        console.log('Game initialized with session:', this.sessionId);
+        console.log('DEBUG: Game initialized with session:', this.sessionId);
+        console.log(`DEBUG: Starting player: ${this.currentPlayer}/${this.totalPlayers}`);
+        console.log('DEBUG: Game state:', { 
+            currentPlayer: this.currentPlayer,
+            score: this.score,
+            isGameActive: this.isGameActive
+        });
+    }
+
+    /**
+     * Setup initial game state (called before countdown)
+     */
+    setupInitialState() {
+        // Get session ID from sessionStorage
+        this.sessionId = sessionStorage.getItem('sessionId') || document.getElementById('session-id').value;
+        
+        if (!this.sessionId) {
+            console.error('No session ID found during setup! Redirecting to home page.');
+            window.location.href = '/';
+            return;
+        }
+        
+        // Update the hidden input
+        document.getElementById('session-id').value = this.sessionId;
+        
+        this.isGameActive = false; // Will be enabled after countdown
+        
+        // Disable controls initially (enabled after countdown)
+        if (this.guessInput) this.guessInput.disabled = true;
+        if (this.guessButton) this.guessButton.disabled = true;
+        
+        console.log('Initial game state setup');
     }
 
     /**
@@ -105,7 +144,7 @@ class GameManager {
             this.guessInput.addEventListener('blur', () => this.hideAutocomplete());
         }
 
-        // Guess button
+        // Guess button (if exists)
         if (this.guessButton) {
             this.guessButton.addEventListener('click', () => this.makeGuess());
         }
@@ -141,15 +180,111 @@ class GameManager {
     }
 
     /**
-     * Handle input change for autocomplete
+     * Set loading state for input
      */
-    async handleInputChange(event) {
+    setLoadingState(loading) {
+        if (loading) {
+            this.guessInput.disabled = true;
+            this.guessInput.classList.add('loading');
+            if (this.guessButton) {
+                this.guessButton.disabled = true;
+                this.guessButton.innerHTML = '<span class="spinner"></span> Traitement...';
+                this.guessButton.classList.add('loading');
+            }
+        } else {
+            this.guessInput.disabled = false;
+            this.guessInput.classList.remove('loading');
+            if (this.guessButton) {
+                this.guessButton.disabled = false;
+                this.guessButton.textContent = 'Deviner';
+                this.guessButton.classList.remove('loading');
+            }
+            this.guessInput.focus();
+        }
+    }
+
+    /**
+     * Show user-friendly error message
+     */
+    showUserFriendlyError(message) {
+        // Create temporary error element
+        const errorEl = document.createElement('div');
+        errorEl.className = 'error-message';
+        errorEl.textContent = message;
+        errorEl.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            z-index: 10000;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            animation: slideDown 0.3s ease;
+        `;
+
+        document.body.appendChild(errorEl);
+
+        // Remove after 4 seconds
+        setTimeout(() => {
+            errorEl.style.animation = 'slideUp 0.3s ease forwards';
+            setTimeout(() => errorEl.remove(), 300);
+        }, 4000);
+    }
+
+    /**
+     * Handle API errors
+     */
+    handleApiError(message) {
+        if (message.includes('Session not found') || message.includes('Session')) {
+            this.showUserFriendlyError('Session expirée. Veuillez redémarrer le jeu.');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 3000);
+        } else {
+            this.showUserFriendlyError(message);
+        }
+    }
+
+    /**
+     * Handle network errors
+     */
+    handleNetworkError(error) {
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            this.showUserFriendlyError('Problème de connexion. Vérifiez votre connexion internet.');
+        } else if (error.message.includes('timeout')) {
+            this.showUserFriendlyError('Délai d\'attente dépassé. Veuillez réessayer.');
+        } else {
+            this.showUserFriendlyError('Erreur de connexion au serveur');
+        }
+    }
+
+    /**
+     * Handle input change for autocomplete with debouncing
+     */
+    handleInputChange(event) {
         const query = event.target.value.trim();
         
+        // Clear existing timer
+        if (this.autocompleteDebounceTimer) {
+            clearTimeout(this.autocompleteDebounceTimer);
+        }
+        
         if (query.length >= 2) {
-            await this.fetchAutocomplete(query);
+            // Add loading state to input
+            this.guessInput.classList.add('loading');
+            
+            // Debounce the API call
+            this.autocompleteDebounceTimer = setTimeout(async () => {
+                await this.fetchAutocomplete(query);
+                this.guessInput.classList.remove('loading');
+            }, this.debounceDelay);
         } else {
             this.hideAutocomplete();
+            this.guessInput.classList.remove('loading');
         }
     }
 
@@ -193,9 +328,11 @@ class GameManager {
     }
 
     /**
-     * Show autocomplete dropdown
+     * Show autocomplete dropdown with highlighted text
      */
     showAutocomplete() {
+        const query = this.guessInput.value.trim().toLowerCase();
+        
         if (this.autocompleteResults.length === 0) {
             this.hideAutocomplete();
             return;
@@ -203,14 +340,39 @@ class GameManager {
 
         this.autocompleteList.innerHTML = '';
         
-        this.autocompleteResults.forEach((player, index) => {
+        // Limit to 10 results for performance
+        const limitedResults = this.autocompleteResults.slice(0, 10);
+        
+        limitedResults.forEach((player, index) => {
             const item = document.createElement('div');
             item.className = 'autocomplete-item';
-            item.textContent = player;
+            
+            // Highlight matching text
+            const playerLower = player.toLowerCase();
+            const queryIndex = playerLower.indexOf(query);
+            
+            if (queryIndex !== -1) {
+                const before = player.substring(0, queryIndex);
+                const match = player.substring(queryIndex, queryIndex + query.length);
+                const after = player.substring(queryIndex + query.length);
+                
+                item.innerHTML = `${before}<span class="autocomplete-highlight">${match}</span>${after}`;
+            } else {
+                item.textContent = player;
+            }
+            
+            // Add hover effects and click handlers
+            item.addEventListener('mouseenter', () => {
+                this.clearSelectedItem();
+                this.selectedIndex = index;
+                item.classList.add('selected');
+            });
+            
             item.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 this.selectAutocompleteItem(index);
             });
+            
             this.autocompleteList.appendChild(item);
         });
 
@@ -227,21 +389,27 @@ class GameManager {
     }
 
     /**
+     * Clear selected autocomplete item
+     */
+    clearSelectedItem() {
+        const items = this.autocompleteList.querySelectorAll('.autocomplete-item');
+        items.forEach(item => item.classList.remove('selected'));
+    }
+
+    /**
      * Navigate autocomplete with arrow keys
      */
     navigateAutocomplete(direction) {
-        if (this.autocompleteResults.length === 0) return;
-
         const items = this.autocompleteList.querySelectorAll('.autocomplete-item');
-        if (this.selectedIndex >= 0 && items[this.selectedIndex]) {
-            items[this.selectedIndex].classList.remove('selected');
-        }
+        if (items.length === 0) return;
+
+        this.clearSelectedItem();
 
         this.selectedIndex += direction;
         
         if (this.selectedIndex < 0) {
-            this.selectedIndex = this.autocompleteResults.length - 1;
-        } else if (this.selectedIndex >= this.autocompleteResults.length) {
+            this.selectedIndex = items.length - 1;
+        } else if (this.selectedIndex >= items.length) {
             this.selectedIndex = 0;
         }
 
@@ -259,27 +427,36 @@ class GameManager {
             this.guessInput.value = this.autocompleteResults[index];
             this.hideAutocomplete();
             this.guessInput.focus();
+            // Automatically submit the guess after selection
+            this.makeGuess();
         }
     }
 
     /**
-     * Make a guess - Task 25: Implement guess submission flow
+     * Make a guess with enhanced error handling
      */
     async makeGuess() {
         if (!this.isGameActive) return;
 
         const playerName = this.guessInput.value.trim();
         if (!playerName) {
-            alert('Veuillez entrer le nom d\'un joueur');
+            this.showUserFriendlyError('Veuillez entrer le nom d\'un joueur');
+            this.guessInput.focus();
             return;
         }
 
-        // Show loading state
-        this.guessButton.disabled = true;
-        this.guessInput.disabled = true;
-        this.guessButton.textContent = 'Traitement...';
+        // Validate session exists
+        if (!this.sessionId) {
+            this.showUserFriendlyError('Session invalide. Veuillez redémarrer le jeu.');
+            return;
+        }
+
+        // Show loading state with visual feedback
+        this.setLoadingState(true);
 
         try {
+            console.log('DEBUG: Making guess request with sessionId:', this.sessionId, 'playerName:', playerName);
+            
             const response = await fetch('/api/guess', {
                 method: 'POST',
                 headers: {
@@ -288,32 +465,47 @@ class GameManager {
                 body: JSON.stringify({
                     sessionId: this.sessionId,
                     playerName: playerName
-                })
+                }),
+                timeout: 10000 // 10 second timeout
             });
 
+            console.log('DEBUG: Guess response status:', response.status, 'ok:', response.ok);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.log('DEBUG: Error response body:', errorText);
+                throw new Error(`Erreur serveur: ${response.status} - ${errorText}`);
+            }
+
             const data = await response.json();
+            console.log('DEBUG: Guess response data:', data);
             
             if (data.success) {
                 this.handleGuessResult(data);
             } else {
-                alert('Erreur: ' + (data.message || 'Erreur inconnue'));
+                this.handleApiError(data.message || 'Erreur inconnue');
             }
         } catch (error) {
             console.error('Error making guess:', error);
-            alert('Erreur de connexion au serveur');
+            this.handleNetworkError(error);
         }
 
         // Reset button state
-        this.guessButton.disabled = false;
-        this.guessInput.disabled = false;
-        this.guessButton.textContent = 'Deviner';
-        this.guessInput.focus();
+        this.setLoadingState(false);
     }
 
     /**
      * Handle guess result with animations
      */
     handleGuessResult(result) {
+        console.log('DEBUG: Handling guess result:', result);
+        
+        // Store current target player for debugging
+        if (result.comparison && result.comparison.targetPlayer) {
+            this.currentTargetPlayer = result.comparison.targetPlayer;
+            console.log(`DEBUG: Current target player is: ${this.currentTargetPlayer.player_username} (Team: ${this.currentTargetPlayer.player_team})`);
+        }
+
         // Update score with animation
         this.score = result.score;
         this.updateScoreDisplay();
@@ -325,60 +517,72 @@ class GameManager {
         this.guessInput.value = '';
         this.hideAutocomplete();
 
-        // Check if correct - Task 26: Handle correct guess flow
+        // Check if correct - Handle correct guess flow
         if (result.correct) {
+            console.log('DEBUG: Correct guess detected!');
+            console.log(`DEBUG: Found player: ${result.comparison.guessed_player.player_username}`);
             this.handleCorrectGuess(result);
         } else if (result.nextPlayer) {
             // Max guesses reached, move to next player
+            console.log('DEBUG: Max guesses reached, moving to next player');
             setTimeout(() => {
                 this.moveToNextPlayer();
             }, 1000);
         }
 
-        // Check if game is over
+        // Check if game is over (timer ran out or all players found)
         if (result.gameOver) {
+            console.log('DEBUG: Game over detected');
             setTimeout(() => {
                 this.handleGameOver();
-            }, result.correct ? 4000 : 2000);
+            }, result.correct ? 3000 : 1000);
         }
 
         this.guessCount++;
+        
+        // Update attempts counter
+        this.updateAttemptsCounter();
     }
 
     /**
-     * Task 26: Handle correct guess flow
+     * Handle correct guess flow - Continue with same timer
      */
     handleCorrectGuess(result) {
+        console.log('DEBUG: Handling correct guess!', result);
+        console.log('DEBUG: NextPlayer flag:', result.nextPlayer);
+        console.log('DEBUG: GameOver flag:', result.gameOver);
+        
         this.playersFound++;
         
         // Show success message "Bravo!" for 1 second
         this.showSuccessMessage();
         
-        // Show current player reveal
-        setTimeout(() => {
-            this.showCurrentPlayerReveal(result.comparison.guessed_player);
-        }, 1000);
-        
-        // Fade out and move to next player after 3 seconds total
+        // Move to next player after 1.5 seconds, keeping timer running
         setTimeout(() => {
             this.fadeOutGameState();
             setTimeout(() => {
+                console.log('DEBUG: About to call moveToNextPlayer from handleCorrectGuess');
                 this.moveToNextPlayer();
-            }, 500);
-        }, 3000);
+            }, 300);
+        }, 1500);
     }
 
     /**
      * Show success message overlay
      */
     showSuccessMessage() {
+        console.log('Showing success message, overlay element:', this.successOverlay);
         if (this.successOverlay) {
             this.successOverlay.classList.remove('hidden');
+            console.log('Success overlay shown');
             
             // Hide after 1 second
             setTimeout(() => {
                 this.successOverlay.classList.add('hidden');
+                console.log('Success overlay hidden');
             }, 1000);
+        } else {
+            console.error('Success overlay element not found!');
         }
     }
 
@@ -511,139 +715,244 @@ class GameManager {
     }
 
     /**
-     * Add guess result to history with animations
+     * Get square CSS class for coloring
+     */
+    getSquareClass(comparisonResult) {
+        switch (comparisonResult) {
+            case 'exact':
+                return 'correct';
+            case 'partial':
+                return 'partial';
+            case 'higher':
+            case 'lower':
+            case 'wrong':
+            default:
+                return 'wrong';
+        }
+    }
+
+    /**
+     * Create a guess square for the Wordle-style grid
+     */
+    createGuessSquare(attributeKey, value, comparison, player) {
+        const square = document.createElement('div');
+        square.className = 'guess-square';
+        square.style.transform = 'rotateY(0deg)';
+        square.style.transition = 'transform 0.3s ease';
+        
+        const content = document.createElement('div');
+        content.className = 'square-content';
+        
+        // Handle different attribute types
+        switch (attributeKey) {
+            case 'name':
+                content.innerHTML = `
+                    <div class="square-text">${value}</div>
+                `;
+                break;
+                
+            case 'team':
+                const teamImg = `/assets/teams/${value.replace(/\s+/g, '_')}.png`;
+                content.innerHTML = `
+                    <img src="${teamImg}" alt="${value}" class="square-image" onerror="this.style.display='none'">
+                    <div class="square-text">${this.truncateText(value, 12)}</div>
+                `;
+                break;
+                
+            case 'age':
+                content.innerHTML = `
+                    <div class="square-text">${value}</div>
+                `;
+                // Add arrow for higher/lower
+                if (comparison === 'higher' || comparison === 'lower') {
+                    const arrow = document.createElement('div');
+                    arrow.className = 'arrow-indicator';
+                    arrow.textContent = comparison === 'higher' ? '↓' : '↑';
+                    square.appendChild(arrow);
+                }
+                break;
+                
+            case 'role':
+                content.innerHTML = `
+                    <div class="square-text">${value}</div>
+                `;
+                break;
+                
+            case 'country':
+                const flag = this.countryFlags[value] || '🌍';
+                content.innerHTML = `
+                    <div class="country-flag">${flag}</div>
+                    <div class="square-secondary">${this.smartTruncateCountry(value)}</div>
+                `;
+                break;
+                
+            case 'kda':
+                content.innerHTML = `
+                    <div class="square-text">${value}</div>
+                `;
+                // Add arrow for higher/lower
+                if (comparison === 'higher' || comparison === 'lower') {
+                    const arrow = document.createElement('div');
+                    arrow.className = 'arrow-indicator';
+                    arrow.textContent = comparison === 'higher' ? '↓' : '↑';
+                    square.appendChild(arrow);
+                }
+                break;
+                
+            case 'champion':
+                const champImg = this.getChampionImageUrl(value);
+                content.innerHTML = `
+                    <img src="${champImg}" alt="${value}" class="square-image" onerror="this.style.display='none'">
+                    <div class="square-secondary">${this.truncateText(value, 10)}</div>
+                `;
+                break;
+                
+            default:
+                content.innerHTML = `
+                    <div class="square-text">${this.truncateText(value, 8)}</div>
+                `;
+        }
+        
+        square.appendChild(content);
+        return square;
+    }
+
+    /**
+     * Truncate text for square display
+     */
+    truncateText(text, maxLength) {
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength - 1) + '…';
+    }
+
+    /**
+     * Smart truncation for country names
+     */
+    smartTruncateCountry(country) {
+        // Country abbreviations for common long names
+        const countryAbbrev = {
+            'Czech Republic': 'Czechia',
+            'United States': 'USA',
+            'United Kingdom': 'UK',
+            'South Korea': 'Korea'
+        };
+
+        // Use abbreviation if available
+        if (countryAbbrev[country]) {
+            return countryAbbrev[country];
+        }
+
+        // For other countries, use longer limit since columns are now equal size
+        return this.truncateText(country, 12);
+    }
+
+    /**
+     * Add guess result as Wordle-style row with colored squares
      */
     addGuessToHistory(result) {
-        const guessDiv = document.createElement('div');
-        guessDiv.className = result.correct ? 'guess-result correct-guess' : 'guess-result';
-        
-        // Add fade-in animation
-        guessDiv.style.opacity = '0';
-        guessDiv.style.transform = 'translateY(20px)';
-        
-        // Header with player name and status
-        const header = document.createElement('div');
-        header.className = 'guess-result-header';
-        
-        const playerName = document.createElement('div');
-        playerName.className = 'guess-player-name';
-        playerName.textContent = result.comparison.guessed_player.player_username;
-        
-        const status = document.createElement('div');
-        status.className = `guess-result-status ${result.correct ? 'correct' : 'incorrect'}`;
-        status.textContent = result.correct ? '✓ Correct!' : '✗ Incorrect';
-        
-        header.appendChild(playerName);
-        header.appendChild(status);
-        
-        // Attributes grid
-        const attributesGrid = document.createElement('div');
-        attributesGrid.className = 'guess-attributes';
+        const guessRow = document.createElement('div');
+        guessRow.className = 'guess-row';
         
         const player = result.comparison.guessed_player;
         const comparisons = result.comparison.comparisons;
         
+        // Create squares for each attribute in the correct order
         const attributes = [
-            { key: 'team', label: 'Équipe', value: player.player_team },
-            { key: 'league', label: 'Ligue', value: player.player_league },
-            { key: 'role', label: 'Rôle', value: player.player_role },
-            { key: 'country', label: 'Pays', value: player.player_country },
-            { key: 'age', label: 'Âge', value: player.player_age },
-            { key: 'clubs', label: 'Clubs', value: player.number_of_clubs },
-            { key: 'kda', label: 'KDA', value: player.kda_ratio.toFixed(2) },
-            { key: 'champion', label: 'Champion', value: player.player_most_played_champion }
+            { 
+                key: 'name', 
+                value: player.player_username,
+                comparison: result.correct ? 'exact' : 'wrong'
+            },
+            { 
+                key: 'team', 
+                value: player.player_team,
+                comparison: comparisons.team || 'wrong'
+            },
+            { 
+                key: 'age', 
+                value: player.player_age.toString(),
+                comparison: comparisons.age || 'wrong'
+            },
+            { 
+                key: 'role', 
+                value: player.player_role,
+                comparison: comparisons.role || 'wrong'
+            },
+            { 
+                key: 'country', 
+                value: player.player_country,
+                comparison: comparisons.country || 'wrong'
+            },
+            { 
+                key: 'kda', 
+                value: player.kda_ratio.toFixed(2),
+                comparison: comparisons.kda || 'wrong'
+            },
+            { 
+                key: 'champion', 
+                value: player.player_most_played_champion,
+                comparison: comparisons.champion || 'wrong'
+            }
         ];
         
         attributes.forEach(attr => {
-            const comparisonResult = comparisons[attr.key] || 'wrong';
-            const attrDiv = document.createElement('div');
-            attrDiv.className = `guess-attribute ${this.getComparisonClass(comparisonResult)}`;
-            attrDiv.textContent = `${attr.label}: ${attr.value}`;
-            attributesGrid.appendChild(attrDiv);
+            const square = this.createGuessSquare(attr.key, attr.value, attr.comparison, player);
+            guessRow.appendChild(square);
         });
         
-        guessDiv.appendChild(header);
-        guessDiv.appendChild(attributesGrid);
+        this.guessRowsElement.appendChild(guessRow);
         
-        this.guessHistoryElement.appendChild(guessDiv);
-        
-        // Animate in
-        setTimeout(() => {
-            guessDiv.style.transition = 'all 0.5s ease-out';
-            guessDiv.style.opacity = '1';
-            guessDiv.style.transform = 'translateY(0)';
-        }, 50);
-        
-        // Scroll to bottom
-        this.guessHistoryElement.scrollTop = this.guessHistoryElement.scrollHeight;
-    }
-
-    /**
-     * Show current player reveal with full details
-     */
-    showCurrentPlayerReveal(player) {
-        this.currentPlayerDisplay.classList.remove('hidden');
-        this.currentPlayerDisplay.classList.add('revealed');
-        
-        // Clear and populate player grid
-        this.currentPlayerGrid.innerHTML = '';
-        
-        const attributes = [
-            { key: 'name', label: 'Joueur', value: player.player_username },
-            { key: 'team', label: 'Équipe', value: player.player_team },
-            { key: 'league', label: 'Ligue', value: player.player_league },
-            { key: 'role', label: 'Rôle', value: player.player_role },
-            { key: 'country', label: 'Pays', value: player.player_country },
-            { key: 'age', label: 'Âge', value: player.player_age.toString() },
-            { key: 'clubs', label: 'Clubs', value: player.number_of_clubs.toString() },
-            { key: 'kda', label: 'KDA', value: player.kda_ratio.toFixed(2) },
-            { key: 'champion', label: 'Champion', value: player.player_most_played_champion }
-        ];
-        
-        attributes.forEach(attr => {
-            const card = this.createPlayerAttributeCard(attr.label, attr.value, 'correct', attr.key);
-            this.currentPlayerGrid.appendChild(card);
+        // Animate squares one by one
+        const squares = guessRow.querySelectorAll('.guess-square');
+        squares.forEach((square, index) => {
+            setTimeout(() => {
+                square.style.transform = 'rotateY(180deg)';
+                setTimeout(() => {
+                    square.classList.add(this.getSquareClass(attributes[index].comparison));
+                    square.style.transform = 'rotateY(0deg)';
+                }, 150);
+            }, index * 100);
         });
     }
 
+
     /**
-     * Move to next player - Load next player and reset guess history
+     * Move to next player - Load next player and clear guess grid
      */
     moveToNextPlayer() {
+        console.log('DEBUG: Moving to next player...');
+        console.log(`DEBUG: Current player before move: ${this.currentPlayer}`);
+        console.log(`DEBUG: Current target player: ${this.currentTargetPlayer ? this.currentTargetPlayer.player_username : 'null'}`);
+        
         this.currentPlayer++;
         this.guessCount = 0;
         
-        // Hide current player display
-        this.currentPlayerDisplay.classList.add('hidden');
-        this.currentPlayerDisplay.classList.remove('revealed');
         
-        // Reset guess history for next player
-        this.guessHistoryElement.innerHTML = '';
-        
-        // Reset timer for next player and continue timer
-        window.timerManager.reset();
-        window.timerManager.start(
-            () => this.handleTimeUp(),
-            (timeLeft) => this.handleTimerTick(timeLeft)
-        );
+        // Clear guess grid for next player
+        console.log('DEBUG: Clearing guess grid');
+        this.guessRowsElement.innerHTML = '';
 
-        // Update player counter
+        // Update player counter and reset attempts
         this.updatePlayerCounter();
+        this.updateAttemptsCounter();
 
-        console.log(`Moved to player ${this.currentPlayer}/${this.totalPlayers}`);
+        // Check if we've reached the end of players
+        if (this.currentPlayer > this.totalPlayers) {
+            console.log('DEBUG: All players completed, ending game');
+            this.handleGameOver();
+            return;
+        }
+
+        console.log(`DEBUG: Moved to player ${this.currentPlayer}/${this.totalPlayers}`);
+        console.log('DEBUG: Player change completed, waiting for server to provide new target player');
     }
 
     /**
-     * Handle time up for current player
+     * Handle time up - Game over when 2 minutes are up
      */
     handleTimeUp() {
-        console.log('Time up for current player');
-        
-        if (this.currentPlayer < this.totalPlayers) {
-            this.moveToNextPlayer();
-        } else {
-            this.handleGameOver();
-        }
+        console.log('Game time is up! 2 minutes elapsed.');
+        this.handleGameOver();
     }
 
     /**
@@ -656,11 +965,34 @@ class GameManager {
     /**
      * Task 27: Create end game flow
      */
-    handleGameOver() {
+    async handleGameOver() {
         this.isGameActive = false;
         window.timerManager.stop();
         
-        console.log('Game over! Final score:', this.score);
+        console.log('DEBUG: Game over! Final score:', this.score);
+        
+        // Notify backend that game is over
+        try {
+            console.log('DEBUG: Calling end-game API for session:', this.sessionId);
+            const response = await fetch('/api/end-game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionId: this.sessionId
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                console.log('DEBUG: Game session marked as completed on backend');
+            } else {
+                console.error('DEBUG: Failed to mark game as completed:', data.message);
+            }
+        } catch (error) {
+            console.error('DEBUG: Error calling end-game API:', error);
+        }
         
         // Show final score and username input form
         this.showEndGameOverlay();
@@ -753,96 +1085,18 @@ class GameManager {
     }
 
     /**
-     * Task 29: Build restart functionality
+     * Task 29: Build restart functionality - Simply redirect to home page
      */
-    async restartGame() {
-        this.showLoading('Création d\'une nouvelle partie...');
+    restartGame() {
+        console.log('DEBUG: Restarting game - redirecting to home page');
         
-        try {
-            // Create new session
-            const response = await fetch('/api/start-game', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Store new session ID and reset all game state
-                sessionStorage.setItem('sessionId', data.sessionId);
-                this.resetGameState();
-                
-                // Hide all overlays
-                this.hideLoading();
-                this.endGameOverlay.classList.add('hidden');
-                
-                // Show countdown again and start fresh game
-                window.countdownManager.start(() => {
-                    console.log('Countdown finished, starting fresh game...');
-                    
-                    if (window.timerManager) {
-                        window.timerManager.start(
-                            () => this.handleTimeUp(),
-                            (timeLeft) => this.handleTimerTick(timeLeft)
-                        );
-                    }
-                    
-                    // Re-enable game controls
-                    this.guessInput.disabled = false;
-                    this.guessButton.disabled = false;
-                    this.guessInput.focus();
-                    
-                    // Re-initialize game
-                    this.initialize();
-                });
-            } else {
-                alert('Erreur lors du démarrage du jeu: ' + (data.message || 'Erreur inconnue'));
-                this.hideLoading();
-            }
-        } catch (error) {
-            console.error('Error restarting game:', error);
-            alert('Erreur de connexion au serveur');
-            this.hideLoading();
-        }
+        // Clear session storage
+        sessionStorage.removeItem('sessionId');
+        
+        // Redirect to home page for a fresh start
+        window.location.href = '/';
     }
 
-    /**
-     * Reset all game state for restart
-     */
-    resetGameState() {
-        this.sessionId = sessionStorage.getItem('sessionId');
-        this.currentPlayer = 1;
-        this.score = 0;
-        this.guessCount = 0;
-        this.playersFound = 0;
-        this.isGameActive = true;
-        
-        // Update displays
-        this.updateScoreDisplay();
-        this.updatePlayerCounter();
-        
-        // Clear guess history
-        this.guessHistoryElement.innerHTML = '';
-        
-        // Hide player display
-        this.currentPlayerDisplay.classList.add('hidden');
-        this.currentPlayerDisplay.classList.remove('revealed');
-        
-        // Clear input
-        this.guessInput.value = '';
-        this.usernameInput.value = '';
-        
-        // Reset submit button
-        this.submitScoreBtn.disabled = false;
-        this.submitScoreBtn.textContent = 'Enregistrer Score';
-        
-        // Update session ID input
-        document.getElementById('session-id').value = this.sessionId;
-        
-        console.log('Game state reset for restart');
-    }
 
     /**
      * Update score display
@@ -859,6 +1113,16 @@ class GameManager {
     updatePlayerCounter() {
         if (this.playerCounterElement) {
             this.playerCounterElement.textContent = `Joueur ${this.currentPlayer}/${this.totalPlayers}`;
+        }
+    }
+
+    /**
+     * Update attempts counter display
+     */
+    updateAttemptsCounter() {
+        if (this.attemptsCounterElement) {
+            const currentPlayerGuesses = this.guessCount;
+            this.attemptsCounterElement.textContent = `Tentatives: ${currentPlayerGuesses}/10`;
         }
     }
 

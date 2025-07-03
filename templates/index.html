@@ -4,170 +4,145 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prodle - Jeu de devinettes League of Legends</title>
+    <link rel="stylesheet" href="/static/css/prodle.css">
     <style>
-        @font-face {
-            font-family: 'ArticulatCF';
-            src: url('/assets/fonts/ArticulatCF.woff2') format('woff2');
-            font-weight: normal;
-            font-style: normal;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'ArticulatCF', Arial, sans-serif;
-            background-image: url('/assets/background/bg_gtlv2.png');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            background-repeat: no-repeat;
+        /* Home page specific styles */
+        .home-container {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-        }
-
-        .container {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 3rem;
-            border-radius: 20px;
             text-align: center;
-            max-width: 600px;
-            width: 90%;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
         }
 
-        .title {
+        .home-content {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-grey);
+            border-radius: var(--border-radius);
+            padding: 40px;
+            max-width: 600px;
+        }
+
+        .home-title {
             font-size: 4rem;
             font-weight: bold;
-            margin-bottom: 2rem;
-            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
-            background: linear-gradient(45deg, #FFD700, #FFA500);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .play-button {
-            background: linear-gradient(45deg, #FF6B35, #F7931E);
-            border: none;
-            padding: 1.5rem 3rem;
-            font-size: 1.5rem;
-            font-family: 'ArticulatCF', Arial, sans-serif;
-            color: white;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            margin-bottom: 3rem;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .play-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-            background: linear-gradient(45deg, #FF8A5B, #FFB347);
-        }
-
-        .leaderboard {
-            text-align: left;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2rem;
-            border-radius: 15px;
-            backdrop-filter: blur(5px);
-        }
-
-        .leaderboard h2 {
-            text-align: center;
-            margin-bottom: 1.5rem;
-            font-size: 1.8rem;
-            color: #FFD700;
+            color: var(--gold);
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            margin-bottom: 30px;
         }
 
-        .leaderboard-entry {
+        .home-button {
+            background: var(--gold);
+            color: var(--text-dark);
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.5rem;
+            font-family: inherit;
+            font-weight: bold;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 30px;
+        }
+
+        .home-button:hover {
+            background: #f7d364;
+            transform: translateY(-2px);
+        }
+
+        .home-leaderboard {
+            background: var(--bg-dark);
+            border: 2px solid var(--border-grey);
+            border-radius: var(--border-radius);
+            padding: 20px;
+        }
+
+        .home-leaderboard h2 {
+            color: var(--gold);
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .home-leaderboard-entry {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.8rem 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            font-size: 1.1rem;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-grey);
         }
 
-        .leaderboard-entry:last-child {
+        .home-leaderboard-entry:last-child {
             border-bottom: none;
         }
 
-        .rank {
+        .home-rank {
             font-weight: bold;
-            color: #FFD700;
+            color: var(--gold);
             width: 30px;
         }
 
-        .username {
+        .home-username {
             flex: 1;
-            margin-left: 1rem;
+            margin-left: 15px;
+            text-align: left;
         }
 
-        .score {
+        .home-score {
             font-weight: bold;
-            color: #32CD32;
+            color: var(--correct-green);
         }
 
-        .empty-leaderboard {
+        .home-empty {
             text-align: center;
-            color: rgba(255, 255, 255, 0.6);
+            color: var(--text-grey);
             font-style: italic;
-            padding: 2rem;
+            padding: 20px;
         }
 
         @media (max-width: 768px) {
-            .container {
-                padding: 2rem;
-                margin: 1rem;
-            }
-            
-            .title {
+            .home-title {
                 font-size: 2.5rem;
             }
             
-            .play-button {
-                padding: 1rem 2rem;
+            .home-button {
+                padding: 15px 30px;
                 font-size: 1.2rem;
+            }
+            
+            .home-content {
+                padding: 30px 20px;
+                margin: 20px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1 class="title">Prodle</h1>
-        
-        <button class="play-button" onclick="startGame()">
-            Prodle (2 min)
-        </button>
-        
-        <div class="leaderboard">
-            <h2>Top 10 Classement</h2>
-            {{if .Leaderboard}}
-                {{range .Leaderboard}}
-                <div class="leaderboard-entry">
-                    <span class="rank">#{{.Rank}}</span>
-                    <span class="username">{{.Username}}</span>
-                    <span class="score">{{.Score}} pts</span>
-                </div>
+    <div class="home-container">
+        <div class="home-content">
+            <h1 class="home-title">Prodle</h1>
+            
+            <button class="home-button" onclick="startGame()">
+                Prodle (2 min)
+            </button>
+            
+            <div class="home-leaderboard">
+                <h2>Classement</h2>
+                {{if .Leaderboard}}
+                    {{range .Leaderboard}}
+                    <div class="home-leaderboard-entry">
+                        <span class="home-rank">#{{.Rank}}</span>
+                        <span class="home-username">{{.Username}}</span>
+                        <span class="home-score">{{.Score}} pts</span>
+                    </div>
+                    {{end}}
+                {{else}}
+                    <div class="home-empty">
+                        Aucun score enregistré pour le moment
+                    </div>
                 {{end}}
-            {{else}}
-                <div class="empty-leaderboard">
-                    Aucun score enregistré pour le moment
-                </div>
-            {{end}}
+            </div>
         </div>
     </div>
 
