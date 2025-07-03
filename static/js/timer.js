@@ -221,22 +221,6 @@ class TimerManager {
 // Global timer manager instance
 window.timerManager = new TimerManager();
 
-// Handle page visibility changes to pause/resume timer
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        // Page is hidden, pause timer
-        if (window.timerManager && window.timerManager.isTimerRunning()) {
-            window.timerManager.pause();
-            console.log('Timer paused due to page being hidden');
-        }
-    } else {
-        // Page is visible again, resume timer
-        if (window.timerManager && !window.timerManager.isTimerRunning() && window.timerManager.getTimeLeft() > 0) {
-            window.timerManager.resume();
-            console.log('Timer resumed due to page being visible');
-        }
-    }
-});
 
 // Prevent accidental page refresh during game
 window.addEventListener('beforeunload', function(e) {
