@@ -80,5 +80,5 @@ jobs:
             --restart unless-stopped \
             --name prodle \
             --network caddy_net \
-              -v "$APP_DIR/prodle.db.json:/app/prodle.db" \
+            -v "$APP_DIR/prodle.db:/app/prodle.db" \
             $DOCKER_IMAGE
