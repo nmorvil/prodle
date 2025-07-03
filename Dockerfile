@@ -2,20 +2,25 @@ FROM golang:1.24.2-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod files
+# Install build dependencies for go-sqlite3
+RUN apk add --no-cache gcc musl-dev sqlite-dev
+
+# Copy go mod files and download dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags="-s -w" -o main .
+# Build the application with CGO enabled
+ENV CGO_ENABLED=1
+RUN go build -o main .
 
 # Final stage
 FROM alpine:3.19
 
-RUN apk --no-cache add ca-certificates tzdata
+# Install runtime dependencies for go-sqlite3 and TLS
+RUN apk --no-cache add ca-certificates tzdata sqlite-libs
 
 WORKDIR /app
 
@@ -31,10 +36,8 @@ COPY --from=builder /app/assets ./assets
 # Create directory for SQLite database
 RUN mkdir -p /app/db
 
-# Set environment variables
 ENV PORT=8080
 ENV GIN_MODE=release
 
 EXPOSE 8080
-
 CMD ["./main"]
