@@ -10,6 +10,7 @@ class GameManager {
         this.isGameActive = false;
         this.currentTargetPlayer = null;
         this.playersFound = 0;
+        this.isTransitioning = false;
         
         // DOM elements
         this.guessInput = document.getElementById('guess-input');
@@ -34,7 +35,7 @@ class GameManager {
         this.selectedIndex = -1;
         this.autocompleteResults = [];
         this.autocompleteDebounceTimer = null;
-        this.debounceDelay = 300; // milliseconds
+        this.debounceDelay = 10; // milliseconds
         
         // Country flag mapping
         this.countryFlags = {
@@ -196,6 +197,28 @@ class GameManager {
     }
 
     /**
+     * Set input disabled state during transitions
+     */
+    setInputDisabled(disabled) {
+        if (this.guessInput) {
+            this.guessInput.disabled = disabled;
+            if (disabled) {
+                this.guessInput.classList.add('transitioning');
+            } else {
+                this.guessInput.classList.remove('transitioning');
+                this.guessInput.focus();
+            }
+        }
+        if (this.guessButton) {
+            this.guessButton.disabled = disabled;
+        }
+        // Hide autocomplete during transitions
+        if (disabled) {
+            this.hideAutocomplete();
+        }
+    }
+
+    /**
      * Show user-friendly error message
      */
     showUserFriendlyError(message) {
@@ -258,6 +281,9 @@ class GameManager {
      * Handle input change for autocomplete with debouncing
      */
     handleInputChange(event) {
+        // Don't process input changes during transitions
+        if (this.isTransitioning) return;
+        
         const query = event.target.value.trim();
         
         // Clear existing timer
@@ -288,8 +314,13 @@ class GameManager {
             event.preventDefault();
             if (this.selectedIndex >= 0 && this.autocompleteResults.length > 0) {
                 this.selectAutocompleteItem(this.selectedIndex);
+            } else if (this.autocompleteResults.length > 0) {
+                // If no player is selected but there are autocomplete results, select the first one
+                this.selectAutocompleteItem(0);
             } else {
-                this.makeGuess();
+                // No autocomplete results - show error message
+                this.showUserFriendlyError('Ce joueur n\'existe pas');
+                this.guessInput.focus();
             }
         } else if (event.key === 'ArrowDown') {
             event.preventDefault();
@@ -428,7 +459,7 @@ class GameManager {
      * Make a guess with enhanced error handling
      */
     async makeGuess() {
-        if (!this.isGameActive) return;
+        if (!this.isGameActive || this.isTransitioning) return;
 
         const playerName = this.guessInput.value.trim();
         if (!playerName) {
@@ -522,6 +553,10 @@ class GameManager {
         
         this.playersFound++;
         
+        // Set transitioning state and disable input
+        this.isTransitioning = true;
+        this.setInputDisabled(true);
+        
         // Show success message "Bravo!" for 1 second
         this.showSuccessMessage();
         
@@ -530,6 +565,9 @@ class GameManager {
             this.fadeOutGameState();
             setTimeout(() => {
                 this.moveToNextPlayer();
+                // Re-enable input after transition
+                this.isTransitioning = false;
+                this.setInputDisabled(false);
             }, 300);
         }, 1500);
     }

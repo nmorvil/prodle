@@ -73,18 +73,66 @@ class CountdownManager {
 // Global countdown manager instance
 window.countdownManager = new CountdownManager();
 
-// Auto-start countdown when page loads if we have a session
-document.addEventListener('DOMContentLoaded', function() {
-    // Check if we have a session ID from the previous page
-    const sessionId = sessionStorage.getItem('sessionId');
+// Create new session function
+async function createNewSession() {
+    console.log('Creating new session...');
     
-    if (sessionId) {
-        // Store session ID in hidden input for other scripts to use
-        const sessionInput = document.getElementById('session-id');
-        if (sessionInput) {
-            sessionInput.value = sessionId;
+    try {
+        const response = await fetch('/api/start-game', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log('Session creation response:', response.status, response.statusText);
+
+        if (!response.ok) {
+            throw new Error(`Failed to create new session: ${response.status} ${response.statusText}`);
         }
 
+        const data = await response.json();
+        console.log('Session data received:', data);
+        
+        if (data.success && data.sessionId) {
+            console.log('New session created with ID:', data.sessionId);
+            
+            // Clear any existing session data first
+            sessionStorage.removeItem('sessionId');
+            
+            // Store new session ID
+            sessionStorage.setItem('sessionId', data.sessionId);
+            
+            // Store session ID in hidden input for other scripts to use
+            const sessionInput = document.getElementById('session-id');
+            if (sessionInput) {
+                sessionInput.value = data.sessionId;
+                console.log('Session ID stored in hidden input');
+            }
+
+            return data.sessionId;
+        } else {
+            throw new Error(`Invalid response from server: ${JSON.stringify(data)}`);
+        }
+    } catch (error) {
+        console.error('Error creating new session:', error);
+        alert('Erreur lors de la création de la session. Redirection vers l\'accueil...');
+        // Redirect to home page on error
+        window.location.href = '/';
+        return null;
+    }
+}
+
+// Auto-start countdown when page loads - always create new session
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('DOM Content Loaded - starting session creation...');
+    
+    // Always create a new session when the game page loads
+    const sessionId = await createNewSession();
+    
+    if (sessionId) {
+        console.log('Session created successfully, starting game flow...');
+        
         // Setup initial game state
         if (window.gameManager) {
             window.gameManager.setupInitialState();
@@ -130,10 +178,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.gameManager.initialize();
             }
         });
-    } else {
-        // No session found, redirect back to home
-        console.warn('No session ID found, redirecting to home');
-        window.location.href = '/';
     }
 });
 
