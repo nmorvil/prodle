@@ -5227,22 +5227,6 @@
     "PrimaryTournamentWins": []
   },
   {
-    "ID": "naiyou",
-    "Team": "LGD Gaming",
-    "League": "Tencent LoL Pro League",
-    "YearOfBirth": 2004,
-    "Role": "Jungle",
-    "Nationality": "China",
-    "Continent": "Asia",
-    "LastSplitResult": "1",
-    "FirstSplitInLeague": 2024,
-    "TeamsPlayed": [
-      "LGD Gaming",
-      "Rare Atom"
-    ],
-    "PrimaryTournamentWins": []
-  },
-  {
     "ID": "Niket",
     "Team": "Royal Never Give Up",
     "League": "Tencent LoL Pro League",
