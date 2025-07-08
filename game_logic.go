@@ -407,9 +407,6 @@ func (gs *GameSession) handleCorrectGuess() {
 	playerPoints := CalculatePlayerPoints(totalElapsed, wrongGuesses)
 	gs.Score += playerPoints
 
-	log.Printf("CORRECT GUESS in session %s! Player %d completed with %d wrong guesses. Points: %d (Total: %d, Time: %ds/%ds)",
-		gs.SessionID, gs.CurrentPlayerIndex+1, wrongGuesses, playerPoints, gs.Score, totalElapsed, TotalGameTime)
-
 	if !gs.MoveToNextPlayer() {
 
 		gs.CompleteSession()

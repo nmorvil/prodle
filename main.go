@@ -171,9 +171,6 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	log.Printf("Request content length: %d", r.ContentLength)
-	log.Printf("Request content type: %s", r.Header.Get("Content-Type"))
-
 	var req StartGameRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("Error decoding request body: %v", err)
@@ -185,8 +182,6 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-
-	log.Printf("Decoded request: %+v", req)
 
 	difficulty := req.Difficulty
 	if difficulty == "" {
@@ -210,7 +205,6 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 		Success:   true,
 	}
 
-	log.Printf("Sending successful response for session %s", session.SessionID)
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -324,7 +318,6 @@ func autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 	if sessionID != "" {
 		if session, exists := GetSession(sessionID); exists {
 			difficulty = session.Difficulty
-			log.Printf("Autocomplete using session %s with difficulty %s", sessionID, difficulty)
 		} else {
 			log.Printf("Autocomplete: session %s not found, using default difficulty", sessionID)
 		}
@@ -510,7 +503,6 @@ func endGameHandler(w http.ResponseWriter, r *http.Request) {
 	if !session.IsCompleted {
 		session.CompleteSession()
 		UpdateSession(session)
-		log.Printf("Session %s marked as completed via end-game API", req.SessionID)
 	}
 
 	response := EndGameResponse{
