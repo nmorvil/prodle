@@ -11,7 +11,6 @@ import (
 
 var db *sql.DB
 
-// InitDatabase initializes the SQLite database connection and creates tables
 func InitDatabase() error {
 	var err error
 	db, err = sql.Open("sqlite3", "./prodle.db")
@@ -19,12 +18,10 @@ func InitDatabase() error {
 		return fmt.Errorf("failed to open database: %v", err)
 	}
 
-	// Test the connection
 	if err = db.Ping(); err != nil {
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
 
-	// Create tables
 	if err = createTables(); err != nil {
 		return fmt.Errorf("failed to create tables: %v", err)
 	}
@@ -33,9 +30,8 @@ func InitDatabase() error {
 	return nil
 }
 
-// createTables creates the necessary database tables
 func createTables() error {
-	// Create separate leaderboard tables for each difficulty
+
 	difficulties := []string{"facile", "moyen", "difficile"}
 
 	for _, difficulty := range difficulties {
@@ -55,7 +51,6 @@ func createTables() error {
 		}
 	}
 
-	// Create legacy leaderboard table for backwards compatibility
 	legacyLeaderboardQuery := `
 	CREATE TABLE IF NOT EXISTS leaderboard (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,7 +66,6 @@ func createTables() error {
 		return fmt.Errorf("failed to create leaderboard table: %v", err)
 	}
 
-	// Create indexes on score for faster leaderboard queries
 	for _, difficulty := range difficulties {
 		indexQuery := fmt.Sprintf(`
 		CREATE INDEX IF NOT EXISTS idx_leaderboard_%s_score 
@@ -82,7 +76,6 @@ func createTables() error {
 		}
 	}
 
-	// Create legacy index
 	legacyIndexQuery := `
 	CREATE INDEX IF NOT EXISTS idx_leaderboard_score 
 	ON leaderboard(score DESC, duration ASC);`
@@ -94,7 +87,6 @@ func createTables() error {
 	return nil
 }
 
-// AddLeaderboardEntry adds a new entry to the leaderboard
 func AddLeaderboardEntry(entry LeaderboardEntry) error {
 	query := `
 	INSERT INTO leaderboard (username, score, date, duration, guess_count)
@@ -108,7 +100,6 @@ func AddLeaderboardEntry(entry LeaderboardEntry) error {
 	return nil
 }
 
-// GetLeaderboard retrieves the top leaderboard entries
 func GetLeaderboard(limit int) ([]LeaderboardEntry, error) {
 	query := `
 	SELECT username, score, date, duration, guess_count
@@ -145,9 +136,8 @@ func GetLeaderboard(limit int) ([]LeaderboardEntry, error) {
 	return entries, nil
 }
 
-// AddLeaderboardEntryByDifficulty adds a new entry to the difficulty-specific leaderboard
 func AddLeaderboardEntryByDifficulty(entry LeaderboardEntry, difficulty string) error {
-	// Validate difficulty
+
 	validDifficulties := map[string]bool{
 		"facile":    true,
 		"moyen":     true,
@@ -170,7 +160,6 @@ func AddLeaderboardEntryByDifficulty(entry LeaderboardEntry, difficulty string) 
 	return nil
 }
 
-// AddToLeaderboardByDifficulty adds a new entry to the difficulty-specific leaderboard with validation
 func AddToLeaderboardByDifficulty(username string, score int, difficulty string) error {
 	if username == "" {
 		return fmt.Errorf("username cannot be empty")
@@ -184,14 +173,13 @@ func AddToLeaderboardByDifficulty(username string, score int, difficulty string)
 		Username:   SanitizeInput(username),
 		Score:      score,
 		Date:       time.Now(),
-		Duration:   0, // Will be updated if needed
-		GuessCount: 0, // Will be updated if needed
+		Duration:   0,
+		GuessCount: 0,
 	}
 
 	return AddLeaderboardEntryByDifficulty(entry, difficulty)
 }
 
-// SubmitScoreByDifficulty adds a score to the difficulty-specific leaderboard from a game session
 func SubmitScoreByDifficulty(username string, session *GameSession, difficulty string) error {
 	if username == "" {
 		return fmt.Errorf("username cannot be empty")
@@ -201,7 +189,6 @@ func SubmitScoreByDifficulty(username string, session *GameSession, difficulty s
 		return fmt.Errorf("session cannot be nil")
 	}
 
-	// Calculate total duration and guess count
 	var totalDuration int
 	var totalGuesses int
 
@@ -211,7 +198,6 @@ func SubmitScoreByDifficulty(username string, session *GameSession, difficulty s
 		totalDuration = int(time.Since(session.StartTime).Seconds())
 	}
 
-	// Count total guesses across all players attempted
 	totalGuesses = len(session.Guesses)
 
 	entry := LeaderboardEntry{
@@ -225,9 +211,8 @@ func SubmitScoreByDifficulty(username string, session *GameSession, difficulty s
 	return AddLeaderboardEntryByDifficulty(entry, difficulty)
 }
 
-// GetLeaderboardByDifficulty retrieves the top leaderboard entries for a specific difficulty
 func GetLeaderboardByDifficulty(limit int, difficulty string) ([]LeaderboardEntry, error) {
-	// Validate difficulty
+
 	validDifficulties := map[string]bool{
 		"facile":    true,
 		"moyen":     true,
@@ -273,7 +258,6 @@ func GetLeaderboardByDifficulty(limit int, difficulty string) ([]LeaderboardEntr
 	return entries, nil
 }
 
-// FormattedLeaderboardEntry represents a leaderboard entry with formatted display data
 type FormattedLeaderboardEntry struct {
 	Rank              int    `json:"rank"`
 	Username          string `json:"username"`
@@ -283,7 +267,6 @@ type FormattedLeaderboardEntry struct {
 	GuessCount        int    `json:"guess_count"`
 }
 
-// GetFormattedLeaderboard returns leaderboard entries formatted for display
 func GetFormattedLeaderboard(limit int) ([]FormattedLeaderboardEntry, error) {
 	entries, err := GetLeaderboard(limit)
 	if err != nil {
@@ -305,7 +288,6 @@ func GetFormattedLeaderboard(limit int) ([]FormattedLeaderboardEntry, error) {
 	return formatted, nil
 }
 
-// GetFormattedLeaderboardByDifficulty returns leaderboard entries formatted for display for a specific difficulty
 func GetFormattedLeaderboardByDifficulty(limit int, difficulty string) ([]FormattedLeaderboardEntry, error) {
 	entries, err := GetLeaderboardByDifficulty(limit, difficulty)
 	if err != nil {
@@ -327,9 +309,8 @@ func GetFormattedLeaderboardByDifficulty(limit int, difficulty string) ([]Format
 	return formatted, nil
 }
 
-// GetPlayerRankByDifficulty calculates the rank of a score in the leaderboard for a specific difficulty
 func GetPlayerRankByDifficulty(score int, duration int, difficulty string) (int, error) {
-	// Validate difficulty
+
 	validDifficulties := map[string]bool{
 		"facile":    true,
 		"moyen":     true,
@@ -340,8 +321,6 @@ func GetPlayerRankByDifficulty(score int, duration int, difficulty string) (int,
 		return 0, fmt.Errorf("invalid difficulty: %s", difficulty)
 	}
 
-	// Count how many scores are better than the given score
-	// Better means: higher score, or same score with lower duration
 	query := fmt.Sprintf(`
 	SELECT COUNT(*) + 1 as rank
 	FROM leaderboard_%s

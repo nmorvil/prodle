@@ -1,4 +1,4 @@
-// Countdown functionality for Prodle game
+
 class CountdownManager {
     constructor() {
         this.countdownOverlay = document.getElementById('countdown-overlay');
@@ -45,15 +45,15 @@ class CountdownManager {
             return;
         }
 
-        // Update the display
+        
         this.countdownNumber.textContent = count;
         
-        // Reset animation by removing and re-adding the class
+        
         this.countdownNumber.style.animation = 'none';
-        this.countdownNumber.offsetHeight; // Trigger reflow
+        this.countdownNumber.offsetHeight; 
         this.countdownNumber.style.animation = 'countdownFade 1s ease-in-out';
 
-        // Add special styling for the last second
+        
         if (count === 1) {
             this.countdownNumber.style.color = '#FF4444';
             this.countdownNumber.style.transform = 'scale(1.1)';
@@ -62,7 +62,7 @@ class CountdownManager {
             this.countdownNumber.style.transform = 'scale(1)';
         }
 
-        // Continue countdown after 1 second
+        
         setTimeout(() => {
             this.runCountdown(count - 1);
         }, 1000);
@@ -70,10 +70,10 @@ class CountdownManager {
 
 }
 
-// Global countdown manager instance
+
 window.countdownManager = new CountdownManager();
 
-// Create new session function
+
 async function createNewSession() {
     console.log('Creating new session...');
     
@@ -81,8 +81,8 @@ async function createNewSession() {
         console.log('Current URL:', window.location.href);
         console.log('URL search params:', window.location.search);
         
-        // Get difficulty from URL parameter
-        let difficulty = 'difficile'; // Default fallback
+        
+        let difficulty = 'difficile'; 
         try {
             const urlParams = new URLSearchParams(window.location.search);
             difficulty = urlParams.get('difficulty') || 'difficile';
@@ -119,13 +119,13 @@ async function createNewSession() {
         if (data.success && data.sessionId) {
             console.log('New session created with ID:', data.sessionId);
             
-            // Clear any existing session data first
+            
             sessionStorage.removeItem('sessionId');
             
-            // Store new session ID
+            
             sessionStorage.setItem('sessionId', data.sessionId);
             
-            // Store session ID in hidden input for other scripts to use
+            
             const sessionInput = document.getElementById('session-id');
             if (sessionInput) {
                 sessionInput.value = data.sessionId;
@@ -139,42 +139,42 @@ async function createNewSession() {
     } catch (error) {
         console.error('Error creating new session:', error);
         alert('Erreur lors de la création de la session. Redirection vers l\'accueil...');
-        // Redirect to home page on error
+        
         window.location.href = '/';
         return null;
     }
 }
 
-// Auto-start countdown when page loads - always create new session
+
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOM Content Loaded - starting session creation...');
     
-    // Always create a new session when the game page loads
+    
     const sessionId = await createNewSession();
     
     if (sessionId) {
         console.log('Session created successfully, starting game flow...');
         
-        // Setup initial game state
+        
         if (window.gameManager) {
             window.gameManager.setupInitialState();
         }
 
-        // Start countdown, then start the game timer
+        
         window.countdownManager.start(() => {
             console.log('Countdown finished, starting 2-minute game timer...');
             
-            // Start the single 2-minute timer for entire game
+            
             if (window.timerManager) {
                 window.timerManager.start(
                     () => {
-                        // Time up callback - end the game
+                        
                         if (window.gameManager) {
                             window.gameManager.handleTimeUp();
                         }
                     },
                     (timeLeft) => {
-                        // Tick callback - update any UI if needed
+                        
                         if (window.gameManager) {
                             window.gameManager.handleTimerTick(timeLeft);
                         }
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 );
             }
             
-            // Enable game controls
+            
             const guessInput = document.getElementById('guess-input');
             const guessButton = document.getElementById('guess-button');
             
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 guessButton.disabled = false;
             }
 
-            // Initialize game functionality (without disabling controls)
+            
             if (window.gameManager) {
                 window.gameManager.initialize();
             }
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 
-// Prevent accidental page refresh during countdown
+
 window.addEventListener('beforeunload', function(e) {
     if (!window.countdownManager.countdownOverlay.classList.contains('hidden')) {
         e.preventDefault();

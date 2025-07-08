@@ -122,7 +122,7 @@ func (gs *GameSession) MoveToNextPlayer() bool {
 	gs.CurrentPlayerIndex++
 
 	if gs.CurrentPlayerIndex >= len(gs.SelectedPlayers) {
-		return false // Game completed
+		return false
 	}
 
 	gs.Guesses = make([]GuessResult, 0)
@@ -162,7 +162,7 @@ func (gs *GameSession) CalculateFinalScore() int {
 	}
 
 	if completedPlayers == len(gs.SelectedPlayers) {
-		completionBonus := 10000 // Much bigger bonus for completing all 20 players
+		completionBonus := 10000
 		gs.Score += completionBonus
 		log.Printf("Session %s completed all players! Bonus: %d points", gs.SessionID, completionBonus)
 	}
@@ -210,17 +210,14 @@ func ValidateGuess(session *GameSession, guessedPlayerName string) (*GuessResult
 		return nil, fmt.Errorf("player not in difficulty: %s", guessedPlayerName)
 	}
 
-	// Get current target player
 	targetPlayer := session.GetCurrentPlayer()
 	if targetPlayer == nil {
 		return nil, fmt.Errorf("no current target player")
 	}
 
-	// Compare guess with target using detailed comparison
 	comparisons := comparePlayersDetailed(*guessedPlayer, *targetPlayer)
 	isCorrect := guessedPlayer.PlayerUsername == targetPlayer.PlayerUsername
 
-	// Create guess result
 	guessResult := GuessResult{
 		GuessedPlayer: *guessedPlayer,
 		TargetPlayer:  *targetPlayer,
@@ -229,63 +226,54 @@ func ValidateGuess(session *GameSession, guessedPlayerName string) (*GuessResult
 		IsCorrect:     isCorrect,
 	}
 
-	// Add guess to session
 	session.Guesses = append(session.Guesses, guessResult)
 
-	// Handle correct guess
 	if isCorrect {
 		session.handleCorrectGuess()
 	} else {
-		// Check if game should end after this guess (only for time limit)
+
 		if session.IsGameOver() {
-			// Time limit reached
+
 			session.handleTimeLimit()
 		}
 	}
 
-	// Update session in storage
 	UpdateSession(session)
 
 	return &guessResult, nil
 }
 
-// comparePlayersDetailed compares two players and returns detailed comparison results
 func comparePlayersDetailed(guessed, target Player) map[string]ComparisonResult {
 	comparisons := make(map[string]ComparisonResult)
 
-	// Team comparison - exact match or league match (partial)
 	if guessed.PlayerTeam == target.PlayerTeam {
 		comparisons["team"] = ComparisonExact
 	} else if guessed.PlayerLeague == target.PlayerLeague {
-		comparisons["team"] = ComparisonPartial // Same league, different team
+		comparisons["team"] = ComparisonPartial
 	} else {
 		comparisons["team"] = ComparisonWrong
 	}
 
-	// League comparison - exact match only
 	if guessed.PlayerLeague == target.PlayerLeague {
 		comparisons["league"] = ComparisonExact
 	} else {
 		comparisons["league"] = ComparisonWrong
 	}
 
-	// Role comparison - exact match only
 	if guessed.PlayerRole == target.PlayerRole {
 		comparisons["role"] = ComparisonExact
 	} else {
 		comparisons["role"] = ComparisonWrong
 	}
 
-	// Country comparison - exact match or continent match (partial)
 	if guessed.PlayerCountry == target.PlayerCountry {
 		comparisons["country"] = ComparisonExact
 	} else if guessed.PlayerCountryContinent == target.PlayerCountryContinent {
-		comparisons["country"] = ComparisonPartial // Same continent, different country
+		comparisons["country"] = ComparisonPartial
 	} else {
 		comparisons["country"] = ComparisonWrong
 	}
 
-	// Age comparison - exact, higher, or lower
 	if guessed.PlayerAge == target.PlayerAge {
 		comparisons["age"] = ComparisonExact
 	} else if guessed.PlayerAge > target.PlayerAge {
@@ -294,7 +282,6 @@ func comparePlayersDetailed(guessed, target Player) map[string]ComparisonResult 
 		comparisons["age"] = ComparisonLower
 	}
 
-	// Number of clubs comparison - exact, higher, or lower
 	if guessed.NumberOfClubs == target.NumberOfClubs {
 		comparisons["clubs"] = ComparisonExact
 	} else if guessed.NumberOfClubs > target.NumberOfClubs {
@@ -303,7 +290,6 @@ func comparePlayersDetailed(guessed, target Player) map[string]ComparisonResult 
 		comparisons["clubs"] = ComparisonLower
 	}
 
-	// KDA ratio comparison - exact, higher, or lower (with tolerance for floating point)
 	kdaTolerance := 0.01
 	if abs(guessed.KDARatio-target.KDARatio) < kdaTolerance {
 		comparisons["kda"] = ComparisonExact
@@ -313,14 +299,12 @@ func comparePlayersDetailed(guessed, target Player) map[string]ComparisonResult 
 		comparisons["kda"] = ComparisonLower
 	}
 
-	// Champion comparison - exact match only
 	if guessed.PlayerMostPlayedChampion == target.PlayerMostPlayedChampion {
 		comparisons["champion"] = ComparisonExact
 	} else {
 		comparisons["champion"] = ComparisonWrong
 	}
 
-	// Average kills comparison - exact, higher, or lower (with tolerance)
 	killsTolerance := 0.1
 	if abs(guessed.AvgKills-target.AvgKills) < killsTolerance {
 		comparisons["avg_kills"] = ComparisonExact
@@ -330,7 +314,6 @@ func comparePlayersDetailed(guessed, target Player) map[string]ComparisonResult 
 		comparisons["avg_kills"] = ComparisonLower
 	}
 
-	// Average deaths comparison - exact, higher, or lower (with tolerance)
 	deathsTolerance := 0.1
 	if abs(guessed.AvgDeaths-target.AvgDeaths) < deathsTolerance {
 		comparisons["avg_deaths"] = ComparisonExact
@@ -340,7 +323,6 @@ func comparePlayersDetailed(guessed, target Player) map[string]ComparisonResult 
 		comparisons["avg_deaths"] = ComparisonLower
 	}
 
-	// Average assists comparison - exact, higher, or lower (with tolerance)
 	assistsTolerance := 0.1
 	if abs(guessed.AvgAssists-target.AvgAssists) < assistsTolerance {
 		comparisons["avg_assists"] = ComparisonExact
@@ -350,48 +332,43 @@ func comparePlayersDetailed(guessed, target Player) map[string]ComparisonResult 
 		comparisons["avg_assists"] = ComparisonLower
 	}
 
-	// Year of birth comparison - exact, higher, or lower
-	// Note: Higher birth year = younger age, so we compare inversely for age logic
 	if guessed.YearOfBirth == target.YearOfBirth {
 		comparisons["year_of_birth"] = ComparisonExact
 	} else if guessed.YearOfBirth > target.YearOfBirth {
-		// Guessed player is younger (born later), so target is older (lower age arrow)
+
 		comparisons["year_of_birth"] = ComparisonLower
 	} else {
-		// Guessed player is older (born earlier), so target is younger (higher age arrow)
+
 		comparisons["year_of_birth"] = ComparisonHigher
 	}
 
-	// Last split result comparison - exact, higher, or lower (as ranking: lower number = better)
 	guessedRank := parseRankingToInt(guessed.LastSplitResult)
 	targetRank := parseRankingToInt(target.LastSplitResult)
 	if guessedRank == targetRank {
 		comparisons["last_split_result"] = ComparisonExact
 	} else if guessedRank > targetRank {
-		// Higher number = worse ranking, so target is better (higher)
+
 		comparisons["last_split_result"] = ComparisonHigher
 	} else {
-		// Lower number = better ranking, so target is worse (lower)
+
 		comparisons["last_split_result"] = ComparisonLower
 	}
 
-	// First split in league comparison - exact, higher, or lower (year: higher = more recent)
 	if guessed.FirstSplitInLeague == target.FirstSplitInLeague {
 		comparisons["first_split_in_league"] = ComparisonExact
 	} else if guessed.FirstSplitInLeague > target.FirstSplitInLeague {
-		// Guessed year is higher (more recent), target is earlier (lower)
+
 		comparisons["first_split_in_league"] = ComparisonLower
 	} else {
-		// Guessed year is lower (earlier), target is more recent (higher)
+
 		comparisons["first_split_in_league"] = ComparisonHigher
 	}
 
 	return comparisons
 }
 
-// parseRankingToInt converts ranking string to integer for comparison
 func parseRankingToInt(ranking string) int {
-	// Remove any non-digit characters and parse as int
+
 	rankStr := ""
 	for _, char := range ranking {
 		if char >= '0' && char <= '9' {
@@ -400,7 +377,7 @@ func parseRankingToInt(ranking string) int {
 	}
 
 	if rankStr == "" {
-		return 999 // Default high value for invalid rankings
+		return 999
 	}
 
 	rank := 0
@@ -411,7 +388,6 @@ func parseRankingToInt(ranking string) int {
 	return rank
 }
 
-// abs returns the absolute value of a float64
 func abs(x float64) float64 {
 	if x < 0 {
 		return -x
@@ -419,43 +395,36 @@ func abs(x float64) float64 {
 	return x
 }
 
-// handleCorrectGuess processes a correct guess
 func (gs *GameSession) handleCorrectGuess() {
-	// Calculate current total elapsed time
+
 	totalElapsed := gs.GetTotalElapsedTime()
 
-	// Calculate wrong guesses for current player (total guesses - 1 for the correct guess)
 	wrongGuesses := len(gs.Guesses) - 1
 	if wrongGuesses < 0 {
 		wrongGuesses = 0
 	}
 
-	// Award points for finding this player
 	playerPoints := CalculatePlayerPoints(totalElapsed, wrongGuesses)
 	gs.Score += playerPoints
 
 	log.Printf("CORRECT GUESS in session %s! Player %d completed with %d wrong guesses. Points: %d (Total: %d, Time: %ds/%ds)",
 		gs.SessionID, gs.CurrentPlayerIndex+1, wrongGuesses, playerPoints, gs.Score, totalElapsed, TotalGameTime)
 
-	// Move to next player using the proper function
 	if !gs.MoveToNextPlayer() {
-		// All players completed
+
 		gs.CompleteSession()
 	}
 }
 
-// handleTimeLimit processes when time limit is reached for current player
 func (gs *GameSession) handleTimeLimit() {
 	log.Printf("Time limit reached in session %s for player %d/%d (2 minutes elapsed)",
 		gs.SessionID, gs.CurrentPlayerIndex+1, len(gs.SelectedPlayers))
 
-	// Move to next player or end session
 	if !gs.MoveToNextPlayer() {
 		gs.CompleteSession()
 	}
 }
 
-// GetTimeRemaining returns the remaining time in seconds for the total game
 func GetTimeRemaining(session *GameSession) int {
 	if session == nil {
 		return 0

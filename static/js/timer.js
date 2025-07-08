@@ -1,18 +1,18 @@
-// Timer system for Prodle game - Total game countdown timer
+
 class TimerManager {
     constructor() {
         this.timerElement = document.getElementById('timer');
-        this.totalGameTime = 120; // Default 2 minutes for entire game
+        this.totalGameTime = 120; 
         this.timeLeft = this.totalGameTime;
         this.intervalId = null;
         this.isRunning = false;
         this.onTimeUp = null;
         this.onTick = null;
         
-        // Load game config to get actual timer duration
+        
         this.loadGameConfig();
         
-        // Initialize display
+        
         this.updateDisplay();
     }
 
@@ -52,12 +52,12 @@ class TimerManager {
         
         console.log(`DEBUG: Starting total game timer - ${this.totalGameTime} seconds...`);
         
-        // Start the interval
+        
         this.intervalId = setInterval(() => {
             this.tick();
         }, 1000);
         
-        // Update display immediately
+        
         this.updateDisplay();
     }
 
@@ -111,17 +111,17 @@ class TimerManager {
         this.timeLeft--;
         this.updateDisplay();
         
-        // Add warning class when under 30 seconds
+        
         if (this.timeLeft <= 30) {
             this.addWarningClass();
         }
         
-        // Call tick callback if provided
+        
         if (this.onTick && typeof this.onTick === 'function') {
             this.onTick(this.timeLeft);
         }
         
-        // Check if time is up
+        
         if (this.timeLeft <= 0) {
             this.handleTimeUp();
         }
@@ -136,7 +136,7 @@ class TimerManager {
         
         console.log('Time is up!');
         
-        // Call time up callback if provided
+        
         if (this.onTimeUp && typeof this.onTimeUp === 'function') {
             this.onTimeUp();
         }
@@ -154,11 +154,11 @@ class TimerManager {
         const minutes = Math.floor(this.timeLeft / 60);
         const seconds = this.timeLeft % 60;
         
-        // Format as M:SS
+        
         const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         this.timerElement.textContent = formattedTime;
         
-        // Update color and animation based on time remaining
+        
         this.timerElement.classList.remove('warning', 'critical');
         
         if (this.timeLeft <= 10) {
@@ -218,11 +218,11 @@ class TimerManager {
 
 }
 
-// Global timer manager instance
+
 window.timerManager = new TimerManager();
 
 
-// Prevent accidental page refresh during game
+
 window.addEventListener('beforeunload', function(e) {
     if (window.timerManager && window.timerManager.isTimerRunning()) {
         e.preventDefault();

@@ -177,14 +177,14 @@ class GameManager {
         if (this.guessButton) {
             this.guessButton.disabled = disabled;
         }
-        // Hide autocomplete during transitions
+        
         if (disabled) {
             this.hideAutocomplete();
         }
     }
 
     showUserFriendlyError(message) {
-        // Create temporary error element
+        
         const errorEl = document.createElement('div');
         errorEl.className = 'error-message';
         errorEl.textContent = message;
@@ -385,7 +385,7 @@ class GameManager {
             this.guessInput.value = this.autocompleteResults[index];
             this.hideAutocomplete();
             this.guessInput.focus();
-            // Automatically submit the guess after selection
+            
             this.makeGuess();
         }
     }
@@ -521,7 +521,7 @@ class GameManager {
         const valueDiv = document.createElement('div');
         valueDiv.className = 'attribute-value';
         
-        // Handle special display cases
+        
         if (attributeKey === 'team') {
             const teamImg = document.createElement('img');
             teamImg.className = 'team-image';
@@ -652,7 +652,7 @@ class GameManager {
         const content = document.createElement('div');
         content.className = 'square-content';
         
-        // Handle different attribute types
+        
         switch (attributeKey) {
             case 'name':
                 content.innerHTML = `
@@ -672,11 +672,11 @@ class GameManager {
                 content.innerHTML = `
                     <div class="square-text">${value}</div>
                 `;
-                // Add arrow for higher/lower (higher = more recent/younger)
+                
                 if (comparison === 'higher' || comparison === 'lower') {
                     const arrow = document.createElement('div');
                     arrow.className = 'arrow-indicator';
-                    // higher = target is more recent (younger), lower = target is older
+                    
                     arrow.textContent = comparison === 'higher' ? '↑' : '↓';
                     square.appendChild(arrow);
                 }
@@ -697,15 +697,15 @@ class GameManager {
                 break;
                 
             case 'last_split_result':
-                // Value is already formatted as ordinal (1er, 2e, etc.) from the attributes array
+                
                 content.innerHTML = `
                     <div class="square-text">${value}</div>
                 `;
-                // Add arrow for higher/lower (higher = better ranking = lower number)
+                
                 if (comparison === 'higher' || comparison === 'lower') {
                     const arrow = document.createElement('div');
                     arrow.className = 'arrow-indicator';
-                    // higher = target has better ranking (lower number), lower = target has worse ranking
+                    
                     arrow.textContent = comparison === 'higher' ? '↑' : '↓';
                     square.appendChild(arrow);
                 }
@@ -715,11 +715,11 @@ class GameManager {
                 content.innerHTML = `
                     <div class="square-text">${this.truncateText(value, 10)}</div>
                 `;
-                // Add arrow for higher/lower (higher = more recent)
+                
                 if (comparison === 'higher' || comparison === 'lower') {
                     const arrow = document.createElement('div');
                     arrow.className = 'arrow-indicator';
-                    // higher = target is more recent, lower = target is earlier
+                    
                     arrow.textContent = comparison === 'higher' ? '↑' : '↓';
                     square.appendChild(arrow);
                 }
@@ -747,7 +747,7 @@ class GameManager {
      * Smart truncation for country names
      */
     smartTruncateCountry(country) {
-        // Country abbreviations for common long names
+        
         const countryAbbrev = {
             'Czech Republic': 'Czechia',
             'United States': 'USA',
@@ -755,12 +755,12 @@ class GameManager {
             'South Korea': 'Korea'
         };
 
-        // Use abbreviation if available
+        
         if (countryAbbrev[country]) {
             return countryAbbrev[country];
         }
 
-        // For other countries, use longer limit since columns are now equal size
+        
         return this.truncateText(country, 12);
     }
 
@@ -788,7 +788,7 @@ class GameManager {
         const player = result.comparison.guessed_player;
         const comparisons = result.comparison.comparisons;
         
-        // Create squares for each attribute in the correct order
+        
         const attributes = [
             { 
                 key: 'name', 
@@ -834,7 +834,7 @@ class GameManager {
         
         this.guessRowsElement.appendChild(guessRow);
         
-        // Animate squares one by one
+        
         const squares = guessRow.querySelectorAll('.guess-square');
         squares.forEach((square, index) => {
             setTimeout(() => {
@@ -857,13 +857,13 @@ class GameManager {
         this.guessCount = 0;
         
         
-        // Clear guess grid for next player
+        
         this.guessRowsElement.innerHTML = '';
 
-        // Update player counter
+        
         this.updatePlayerCounter();
 
-        // Check if we've reached the end of players
+        
         if (this.currentPlayer > this.totalPlayers) {
             this.handleGameOver();
             return;
@@ -883,7 +883,7 @@ class GameManager {
      * Handle timer tick
      */
     handleTimerTick(timeLeft) {
-        // Could add additional UI updates here if needed
+        
     }
 
     /**
@@ -894,7 +894,7 @@ class GameManager {
         window.timerManager.stop();
         
         
-        // Notify backend that game is over
+        
         try {
             const response = await fetch('/api/end-game', {
                 method: 'POST',
@@ -915,7 +915,7 @@ class GameManager {
             console.error('Error calling end-game API:', error);
         }
         
-        // Show final score and username input form
+        
         this.showEndGameOverlay();
     }
 
@@ -931,11 +931,11 @@ class GameManager {
             this.playersCompletedElement.textContent = `Joueurs Trouvés: ${this.playersFound}/${this.totalPlayers}`;
         }
         
-        // Show score form, hide submitted message
+        
         this.scoreForm.classList.remove('hidden');
         this.scoreSubmitted.classList.add('hidden');
         
-        // Focus username input
+        
         setTimeout(() => {
             if (this.usernameInput) {
                 this.usernameInput.focus();
@@ -962,7 +962,7 @@ class GameManager {
             return;
         }
 
-        // Disable submit button and show loading
+        
         this.submitScoreBtn.disabled = true;
         this.submitScoreBtn.textContent = 'Enregistrement...';
 
@@ -981,9 +981,9 @@ class GameManager {
             const data = await response.json();
             
             if (data.success) {
-                // Show confirmation message with rank and update leaderboard
+                
                 this.showScoreSubmitted(data.rank);
-                this.loadLeaderboard(); // Refresh leaderboard
+                this.loadLeaderboard(); 
             } else {
                 alert('Erreur lors de l\'enregistrement: ' + (data.message || 'Erreur inconnue'));
                 this.submitScoreBtn.disabled = false;
@@ -1004,7 +1004,7 @@ class GameManager {
         this.scoreForm.classList.add('hidden');
         this.scoreSubmitted.classList.remove('hidden');
         
-        // Display rank if provided
+        
         if (rank && rank > 0 && this.playerRankElement) {
             let rankText;
             if (rank === 1) {
@@ -1027,10 +1027,10 @@ class GameManager {
      */
     restartGame() {
         
-        // Clear session storage
+        
         sessionStorage.removeItem('sessionId');
         
-        // Redirect to home page for a fresh start
+        
         window.location.href = '/';
     }
 
@@ -1058,14 +1058,14 @@ class GameManager {
      * Load leaderboard for sidebar
      */
     async loadLeaderboard() {
-        // This would call a leaderboard API endpoint when implemented
+        
     }
 }
 
-// Global game manager instance - initialized only once
+
 window.gameManager = null;
 
-// Global functions for HTML onclick handlers
+
 function makeGuess() {
     if (window.gameManager) {
         window.gameManager.makeGuess();
@@ -1084,7 +1084,7 @@ function restartGame() {
     }
 }
 
-// Initialize when DOM is loaded - create single instance
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Complete game flow system initialized');
     if (!window.gameManager) {

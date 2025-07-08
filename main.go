@@ -30,15 +30,13 @@ func init() {
 }
 
 func main() {
-	// Static file serving
+
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 
-	// Main routes
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/game", gameHandler)
 
-	// API routes
 	http.HandleFunc("/api/start-game", startGameHandler)
 	http.HandleFunc("/api/guess", guessHandler)
 	http.HandleFunc("/api/autocomplete", autocompleteHandler)
@@ -101,13 +99,12 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func gameHandler(w http.ResponseWriter, r *http.Request) {
-	// Get difficulty from URL parameter
+
 	difficulty := r.URL.Query().Get("difficulty")
 	if difficulty == "" {
-		difficulty = "difficile" // Default fallback
+		difficulty = "difficile"
 	}
 
-	// Get difficulty info to pass to template
 	difficultyInfo := GetDifficultyInfo()
 
 	data := struct {
@@ -436,7 +433,6 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate player rank after submission
 	var totalDuration int
 	if session.CompletionTime != nil {
 		totalDuration = int(session.CompletionTime.Sub(session.StartTime).Seconds())
@@ -447,7 +443,7 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 	rank, err := GetPlayerRankByDifficulty(finalScore, totalDuration, session.Difficulty)
 	if err != nil {
 		log.Printf("Error calculating rank: %v", err)
-		// Continue without rank if there's an error
+
 		rank = 0
 	}
 
