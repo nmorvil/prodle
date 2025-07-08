@@ -524,7 +524,7 @@ func GetDifficultyInfo() map[string]map[string]interface{} {
 	info[DifficultyDifficile] = map[string]interface{}{
 		"name":        "Difficile",
 		"playerCount": len(difficilePlayers),
-		"leagues":     "Top 4 LTAN, LCK, Top 10 LPL, LEC, LFL, Top 3 LCP",
+		"leagues":     "Top 4 LTAN, LCK, Top 12 LPL, LEC, LFL, Top 3 LCP",
 		"description": "",
 	}
 
