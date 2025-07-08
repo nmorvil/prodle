@@ -10,6 +10,12 @@
     <!-- Game Header -->
     <div class="game-header">
         <h1 class="game-title">PRODLE</h1>
+        {{if .DifficultyInfo}}
+            {{$diffInfo := index .DifficultyInfo .Difficulty}}
+            {{if $diffInfo}}
+                <p class="difficulty-subtitle">{{index $diffInfo "leagues"}}</p>
+            {{end}}
+        {{end}}
     </div>
     
     <!-- Game Info (Timer, Score, Player Counter) -->
@@ -40,11 +46,11 @@
             <div class="grid-headers">
                 <div class="header-cell">Joueur</div>
                 <div class="header-cell">Équipe</div>
-                <div class="header-cell">Âge</div>
+                <div class="header-cell">Année Naissance</div>
                 <div class="header-cell">Rôle</div>
                 <div class="header-cell">Pays</div>
-                <div class="header-cell">KDA</div>
-                <div class="header-cell">Champion</div>
+                <div class="header-cell">Résultat dernier split</div>
+                <div class="header-cell">Arrivé dans la ligue en</div>
             </div>
 
             <!-- Guess Rows -->
@@ -106,6 +112,7 @@
 
             <div class="score-submitted hidden" id="score-submitted">
                 <div class="submitted-message">Score enregistré avec succès!</div>
+                <div class="player-rank hidden" id="player-rank">Vous êtes #1 sur le classement!</div>
                 <button class="restart-btn" onclick="restartGame()">
                     Recommencer
                 </button>

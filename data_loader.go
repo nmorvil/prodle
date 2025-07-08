@@ -15,7 +15,6 @@ import (
 // In-memory data storage
 var (
 	allPlayers    []Player
-	teamImages    map[string]string
 	playerNames   []string
 	playersByName map[string]Player
 	dataLoaded    bool
@@ -36,10 +35,8 @@ func InitializeGameData() error {
 		return fmt.Errorf("failed to load players: %v", err)
 	}
 
-	// Load team images
-	if err := LoadTeamImages(); err != nil {
-		return fmt.Errorf("failed to load team images: %v", err)
-	}
+	// Team images are now loaded directly from team names
+	// No need to load separate mapping file
 
 	// Initialize player lookup structures
 	initializePlayerLookup()
@@ -61,26 +58,43 @@ func LoadPlayers() error {
 		return fmt.Errorf("failed to parse prodle.json: %v", err)
 	}
 
+	// Populate compatibility fields for backward compatibility
+	for i := range players {
+		populateCompatibilityFields(&players[i])
+	}
+
 	allPlayers = players
 	log.Printf("Loaded %d players from prodle.json", len(allPlayers))
 	return nil
 }
 
-// LoadTeamImages reads and parses the img_mapping.json file
-func LoadTeamImages() error {
-	data, err := os.ReadFile("data/img_mapping.json")
-	if err != nil {
-		return fmt.Errorf("failed to read img_mapping.json: %v", err)
+// populateCompatibilityFields fills in the legacy field names for backward compatibility
+func populateCompatibilityFields(player *Player) {
+	// Map new fields to legacy field names
+	player.PlayerUsername = player.ID
+	player.PlayerName = player.ID
+	player.PlayerTeam = player.Team
+	player.PlayerLeague = player.League
+	player.NumberOfClubs = len(player.TeamsPlayed)
+	player.PlayerCountry = player.Nationality
+	player.PlayerCountryContinent = player.Continent
+	player.PlayerRole = player.Role
+
+	// Calculate age from year of birth
+	currentYear := time.Now().Year()
+	if player.YearOfBirth > 0 {
+		player.PlayerAge = currentYear - player.YearOfBirth
 	}
 
-	var images map[string]string
-	if err := json.Unmarshal(data, &images); err != nil {
-		return fmt.Errorf("failed to parse img_mapping.json: %v", err)
-	}
-
-	teamImages = images
-	log.Printf("Loaded %d team image mappings from img_mapping.json", len(teamImages))
-	return nil
+	// Legacy fields remain empty/zero as they're not in the new JSON structure
+	player.PlayerMediaURL = ""
+	player.PlayerTeamMediaURL = ""
+	player.PlayerMostPlayedChampion = ""
+	player.AvgKills = 0.0
+	player.AvgDeaths = 0.0
+	player.AvgAssists = 0.0
+	player.KDARatio = 0.0
+	player.GamesPlayed = 0
 }
 
 // initializePlayerLookup creates lookup structures for quick player access
@@ -105,36 +119,6 @@ func initializePlayerLookup() {
 	sort.Strings(playerNames)
 }
 
-// GetAllPlayers returns all loaded players
-func GetAllPlayers() []Player {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
-
-	if !dataLoaded {
-		return nil
-	}
-
-	// Return a copy to prevent external modification
-	result := make([]Player, len(allPlayers))
-	copy(result, allPlayers)
-	return result
-}
-
-// GetAllPlayerNames returns all player usernames for autocomplete
-func GetAllPlayerNames() []string {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
-
-	if !dataLoaded {
-		return nil
-	}
-
-	// Return a copy to prevent external modification
-	result := make([]string, len(playerNames))
-	copy(result, playerNames)
-	return result
-}
-
 // GetPlayerByName returns a player by their username or real name (case-insensitive)
 func GetPlayerByName(name string) (*Player, bool) {
 	dataMutex.RLock()
@@ -146,19 +130,6 @@ func GetPlayerByName(name string) (*Player, bool) {
 
 	player, exists := playersByName[strings.ToLower(name)]
 	return &player, exists
-}
-
-// GetTeamImage returns the image filename for a team
-func GetTeamImage(teamName string) (string, bool) {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
-
-	if !dataLoaded {
-		return "", false
-	}
-
-	image, exists := teamImages[teamName]
-	return image, exists
 }
 
 // GetAllTeams returns all unique team names
@@ -257,21 +228,304 @@ func GetRandomPlayers(count int) ([]Player, error) {
 	return players[:count], nil
 }
 
-// FilterPlayersByName returns players whose names match the search query (for autocomplete)
-func FilterPlayersByName(query string, limit int) []string {
+// Difficulty level constants
+const (
+	DifficultyFacile    = "facile"
+	DifficultyMoyen     = "moyen"
+	DifficultyDifficile = "difficile"
+)
+
+// parseRankingToIntForFilter converts ranking string to integer for filtering
+func parseRankingToIntForFilter(ranking string) int {
+	if ranking == "" {
+		return 999 // Default high value for invalid rankings
+	}
+
+	rankStr := ""
+	for _, char := range ranking {
+		if char >= '0' && char <= '9' {
+			rankStr += string(char)
+		}
+	}
+
+	if rankStr == "" {
+		return 999
+	}
+
+	rank := 0
+	for _, char := range rankStr {
+		rank = rank*10 + int(char-'0')
+	}
+
+	return rank
+}
+
+// GetPlayersByDifficulty returns players filtered by difficulty level
+func GetPlayersByDifficulty(difficulty string) []Player {
 	dataMutex.RLock()
 	defer dataMutex.RUnlock()
 
-	if !dataLoaded || query == "" {
+	if !dataLoaded {
 		return nil
 	}
 
-	query = strings.ToLower(query)
-	var matches []string
+	switch difficulty {
+	case DifficultyFacile:
+		return getFacilePlayersUnsafe()
+	case DifficultyMoyen:
+		return getMoyenPlayersUnsafe()
+	case DifficultyDifficile:
+		return getDifficilePlayersUnsafe()
+	default:
+		// Return a copy to prevent external modification
+		result := make([]Player, len(allPlayers))
+		copy(result, allPlayers)
+		return result
+	}
+}
 
-	for _, name := range playerNames {
-		if strings.Contains(strings.ToLower(name), query) {
-			matches = append(matches, name)
+// IsPlayerInDifficulty checks if a specific player is available in the given difficulty
+func IsPlayerInDifficulty(player *Player, difficulty string) bool {
+	if player == nil {
+		return false
+	}
+
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	if !dataLoaded {
+		return false
+	}
+
+	switch difficulty {
+	case DifficultyFacile:
+		return isPlayerInFacile(*player)
+	case DifficultyMoyen:
+		return isPlayerInMoyen(*player)
+	case DifficultyDifficile:
+		return isPlayerInDifficile(*player)
+	default:
+		return true // If no specific difficulty, all players are valid
+	}
+}
+
+// Helper functions for individual player difficulty checks
+func isPlayerInFacile(player Player) bool {
+	league := player.League
+	rank := parseRankingToIntForFilter(player.LastSplitResult)
+
+	switch league {
+	case "LoL EMEA Championship": // LEC
+		return true
+	case "La Ligue Française": // LFL
+		return rank <= 5
+	case "LoL Champions Korea": // LCK
+		return rank <= 5
+	default:
+		return false
+	}
+}
+
+func isPlayerInMoyen(player Player) bool {
+	league := player.League
+	rank := parseRankingToIntForFilter(player.LastSplitResult)
+
+	switch league {
+	case "LoL EMEA Championship", "La Ligue Française", "LoL Champions Korea": // LEC, LFL, LCK
+		return true
+	case "Tencent LoL Pro League": // LPL
+		return rank <= 6
+	default:
+		return false
+	}
+}
+
+func isPlayerInDifficile(player Player) bool {
+	league := player.League
+	rank := parseRankingToIntForFilter(player.LastSplitResult)
+
+	switch league {
+	case "League of Legends Championship of The Americas North": // LTAN
+		return rank <= 4
+	case "LoL Champions Korea", "LoL EMEA Championship", "La Ligue Française": // LCK, LEC, LFL
+		return true
+	case "Tencent LoL Pro League": // LPL
+		return rank <= 10
+	case "League of Legends Championship Pacific": // LCP
+		return rank <= 3
+	default:
+		return false
+	}
+}
+
+// getFacilePlayers returns players for Facile difficulty
+// LEC (all), LFL (top 5), LCK (top 5)
+func getFacilePlayers() []Player {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+	return getFacilePlayersUnsafe()
+}
+
+// getFacilePlayersUnsafe returns players for Facile difficulty (assumes lock is already held)
+func getFacilePlayersUnsafe() []Player {
+	var result []Player
+
+	for _, player := range allPlayers {
+		league := player.League
+		rank := parseRankingToIntForFilter(player.LastSplitResult)
+
+		switch league {
+		case "LoL EMEA Championship": // LEC
+			result = append(result, player)
+		case "La Ligue Française": // LFL
+			if rank <= 5 {
+				result = append(result, player)
+			}
+		case "LoL Champions Korea": // LCK
+			if rank <= 5 {
+				result = append(result, player)
+			}
+		}
+	}
+
+	return result
+}
+
+// getMoyenPlayers returns players for Moyen difficulty
+// LEC (all), LFL (all), LCK (all), LPL (top 6)
+func getMoyenPlayers() []Player {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+	return getMoyenPlayersUnsafe()
+}
+
+// getMoyenPlayersUnsafe returns players for Moyen difficulty (assumes lock is already held)
+func getMoyenPlayersUnsafe() []Player {
+	var result []Player
+
+	for _, player := range allPlayers {
+		league := player.League
+		rank := parseRankingToIntForFilter(player.LastSplitResult)
+
+		switch league {
+		case "LoL EMEA Championship": // LEC
+			result = append(result, player)
+		case "La Ligue Française": // LFL
+			result = append(result, player)
+		case "LoL Champions Korea": // LCK
+			result = append(result, player)
+		case "Tencent LoL Pro League": // LPL
+			if rank <= 6 {
+				result = append(result, player)
+			}
+		}
+	}
+
+	return result
+}
+
+// getDifficilePlayers returns players for Difficile difficulty
+// LTAN (top 4), LCK (all), LPL (top 10), LEC (all), LFL (all), LCP (top 3)
+func getDifficilePlayers() []Player {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+	return getDifficilePlayersUnsafe()
+}
+
+// getDifficilePlayersUnsafe returns players for Difficile difficulty (assumes lock is already held)
+func getDifficilePlayersUnsafe() []Player {
+	var result []Player
+
+	for _, player := range allPlayers {
+		league := player.League
+		rank := parseRankingToIntForFilter(player.LastSplitResult)
+
+		switch league {
+		case "League of Legends Championship of The Americas North": // LTAN
+			if rank <= 4 {
+				result = append(result, player)
+			}
+		case "LoL Champions Korea": // LCK
+			result = append(result, player)
+		case "Tencent LoL Pro League": // LPL
+			if rank <= 10 {
+				result = append(result, player)
+			}
+		case "LoL EMEA Championship": // LEC
+			result = append(result, player)
+		case "La Ligue Française": // LFL
+			result = append(result, player)
+		case "League of Legends Championship Pacific": // LCP
+			if rank <= 3 {
+				result = append(result, player)
+			}
+		}
+	}
+
+	return result
+}
+
+// GetRandomPlayersByDifficulty returns random players filtered by difficulty
+func GetRandomPlayersByDifficulty(count int, difficulty string) ([]Player, error) {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	if !dataLoaded {
+		return nil, fmt.Errorf("game data not loaded")
+	}
+
+	filteredPlayers := GetPlayersByDifficulty(difficulty)
+	if len(filteredPlayers) == 0 {
+		return nil, fmt.Errorf("no players found for difficulty %s", difficulty)
+	}
+
+	if count > len(filteredPlayers) {
+		count = len(filteredPlayers)
+	}
+
+	// Create a copy and shuffle
+	players := make([]Player, len(filteredPlayers))
+	copy(players, filteredPlayers)
+
+	// Shuffle using Fisher-Yates algorithm
+	rand.Seed(time.Now().UnixNano())
+	for i := len(players) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		players[i], players[j] = players[j], players[i]
+	}
+
+	return players[:count], nil
+}
+
+// FilterPlayersByNameAndDifficulty returns player names filtered by search query and difficulty
+func FilterPlayersByNameAndDifficulty(query string, difficulty string, limit int) []string {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	if !dataLoaded {
+		return nil
+	}
+
+	filteredPlayers := GetPlayersByDifficulty(difficulty)
+
+	// If query is empty, return all players from the difficulty
+	if query == "" {
+		var matches []string
+		for _, player := range filteredPlayers {
+			matches = append(matches, player.ID)
+			if len(matches) >= limit {
+				break
+			}
+		}
+		return matches
+	}
+
+	query = strings.ToLower(query)
+
+	var matches []string
+	for _, player := range filteredPlayers {
+		if strings.Contains(strings.ToLower(player.ID), query) {
+			matches = append(matches, player.ID)
 			if len(matches) >= limit {
 				break
 			}
@@ -281,23 +535,43 @@ func FilterPlayersByName(query string, limit int) []string {
 	return matches
 }
 
-// GetDataStats returns statistics about the loaded data
-func GetDataStats() map[string]interface{} {
+// GetDifficultyInfo returns information about each difficulty level
+func GetDifficultyInfo() map[string]map[string]interface{} {
 	dataMutex.RLock()
 	defer dataMutex.RUnlock()
 
 	if !dataLoaded {
-		return map[string]interface{}{
-			"loaded": false,
-		}
+		return nil
 	}
 
-	return map[string]interface{}{
-		"loaded":        true,
-		"total_players": len(allPlayers),
-		"total_teams":   len(GetAllTeams()),
-		"total_leagues": len(GetAllLeagues()),
-		"total_roles":   len(GetAllRoles()),
-		"team_images":   len(teamImages),
+	info := make(map[string]map[string]interface{})
+
+	// Facile info
+	facilePlayers := getFacilePlayers()
+	info[DifficultyFacile] = map[string]interface{}{
+		"name":        "Facile",
+		"playerCount": len(facilePlayers),
+		"leagues":     "LEC, Top 5 LFL, Top 5 LCK",
+		"description": "",
 	}
+
+	// Moyen info
+	moyenPlayers := getMoyenPlayers()
+	info[DifficultyMoyen] = map[string]interface{}{
+		"name":        "Moyen",
+		"playerCount": len(moyenPlayers),
+		"leagues":     "LEC, LFL, LCK, Top 6 LPL",
+		"description": "",
+	}
+
+	// Difficile info
+	difficilePlayers := getDifficilePlayers()
+	info[DifficultyDifficile] = map[string]interface{}{
+		"name":        "Difficile",
+		"playerCount": len(difficilePlayers),
+		"leagues":     "Top 4 LTAN, LCK, Top 10 LPL, LEC, LFL, Top 3 LCP",
+		"description": "",
+	}
+
+	return info
 }

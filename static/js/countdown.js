@@ -78,21 +78,43 @@ async function createNewSession() {
     console.log('Creating new session...');
     
     try {
+        console.log('Current URL:', window.location.href);
+        console.log('URL search params:', window.location.search);
+        
+        // Get difficulty from URL parameter
+        let difficulty = 'difficile'; // Default fallback
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            difficulty = urlParams.get('difficulty') || 'difficile';
+            console.log('Using difficulty from URL:', difficulty);
+        } catch (urlError) {
+            console.error('Error parsing URL parameters:', urlError);
+        }
+        
+        const requestBody = {
+            difficulty: difficulty
+        };
+        console.log('Sending request body:', JSON.stringify(requestBody));
+        console.log('Request body type:', typeof requestBody);
+        console.log('Request body stringified length:', JSON.stringify(requestBody).length);
+        
         const response = await fetch('/api/start-game', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify(requestBody)
         });
 
         console.log('Session creation response:', response.status, response.statusText);
 
-        if (!response.ok) {
-            throw new Error(`Failed to create new session: ${response.status} ${response.statusText}`);
-        }
-
         const data = await response.json();
         console.log('Session data received:', data);
+
+        if (!response.ok) {
+            console.error('Server returned error:', data);
+            throw new Error(`Failed to create new session: ${response.status} ${response.statusText}`);
+        }
         
         if (data.success && data.sessionId) {
             console.log('New session created with ID:', data.sessionId);

@@ -3,24 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prodle - Jeu de devinettes League of Legends</title>
+    <title>Prodle - Le wordle de l'esport LoL</title>
     <link rel="stylesheet" href="/static/css/prodle.css">
     <style>
-        /* Home page specific styles */
         .home-container {
-            min-height: 100vh;
+            height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .home-content {
             background: var(--bg-secondary);
-            border: 2px solid var(--border-grey);
             border-radius: var(--border-radius);
             padding: 40px;
-            max-width: 600px;
+            max-width: 800px;
+            width: 90%;
         }
 
         .home-title {
@@ -33,10 +35,9 @@
 
         .home-button {
             background: var(--gold);
-            color: var(--text-dark);
             border: none;
-            padding: 20px 40px;
-            font-size: 1.5rem;
+            padding: 10px 15px;
+            font-size: 1.25rem;
             font-family: inherit;
             font-weight: bold;
             border-radius: var(--border-radius);
@@ -45,6 +46,35 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 30px;
+            color:white;
+        }
+
+        .difficulty-option {
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .difficulty-game-button {
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .difficulty-description {
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            margin: 0 auto;
+            max-width: 400px;
+            text-align: left;
+        }
+
+        .difficulty-leagues {
+            color: var(--gold);
+            font-size: 0.85rem;
+            font-weight: bold;
+            line-height: 1.3;
+            text-align: center;
         }
 
         .home-button:hover {
@@ -54,7 +84,6 @@
 
         .home-leaderboard {
             background: var(--bg-dark);
-            border: 2px solid var(--border-grey);
             border-radius: var(--border-radius);
             padding: 20px;
         }
@@ -70,7 +99,6 @@
             justify-content: space-between;
             align-items: center;
             padding: 10px 0;
-            border-bottom: 1px solid var(--border-grey);
         }
 
         .home-leaderboard-entry:last-child {
@@ -96,9 +124,93 @@
 
         .home-empty {
             text-align: center;
-            color: var(--text-grey);
             font-style: italic;
             padding: 20px;
+        }
+
+        /* Difficulty selection styles */
+        .difficulty-section {
+            margin-bottom: 30px;
+        }
+
+        .difficulty-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .difficulty-button {
+            background: var(--bg-dark);
+            padding: 15px 25px;
+            font-family: inherit;
+            font-weight: bold;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+        }
+
+        .difficulty-button:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .difficulty-button.active {
+            background: var(--gold);
+            border-color: var(--gold);
+        }
+
+        .difficulty-info {
+            background: var(--bg-dark);
+            border-radius: var(--border-radius);
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .difficulty-description {
+            margin-bottom: 5px;
+        }
+
+        .difficulty-leagues {
+            color: var(--gold);
+            font-weight: bold;
+        }
+
+        /* Tab system styles */
+        .leaderboard-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: var(--transition);
+            border-bottom: 2px solid transparent;
+            font-family: inherit;
+            font-weight: bold;
+            color:white;
+        }
+
+        .tab-button.active {
+            color: var(--gold);
+            border-bottom-color: var(--gold);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
         }
 
         @media (max-width: 768px) {
@@ -115,6 +227,28 @@
                 padding: 30px 20px;
                 margin: 20px;
             }
+
+            .difficulty-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .difficulty-button {
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .leaderboard-tabs {
+                flex-direction: column;
+            }
+
+            .tab-button {
+                text-align: center;
+            }
+
+            .tab-button.active {
+                border-bottom-color: var(--gold);
+            }
         }
     </style>
 </head>
@@ -123,52 +257,126 @@
         <div class="home-content">
             <h1 class="home-title">Prodle</h1>
             
-            <button class="home-button" onclick="startGame()">
-                Prodle (2 min)
-            </button>
-            
-            <div class="home-leaderboard">
-                <h2>Classement</h2>
-                {{if .Leaderboard}}
-                    {{range .Leaderboard}}
-                    <div class="home-leaderboard-entry">
-                        <span class="home-rank">#{{.Rank}}</span>
-                        <span class="home-username">{{.Username}}</span>
-                        <span class="home-score">{{.Score}} pts</span>
+            <!-- Difficulty Selection with Individual Buttons -->
+            <div class="difficulty-section">
+                {{if .DifficultyInfo}}
+                    <!-- Facile Button and Description -->
+                    <div class="difficulty-option">
+                        <button class="home-button difficulty-game-button" onclick="startGameDifficulty('facile')">
+                            Prodle Facile
+                        </button>
+                        <div class="difficulty-description">
+                            <div class="difficulty-leagues">{{index .DifficultyInfo "facile" "leagues"}}</div>
+                        </div>
                     </div>
-                    {{end}}
-                {{else}}
-                    <div class="home-empty">
-                        Aucun score enregistré pour le moment
+
+                    <!-- Moyen Button and Description -->
+                    <div class="difficulty-option">
+                        <button class="home-button difficulty-game-button" onclick="startGameDifficulty('moyen')">
+                            Prodle Moyen
+                        </button>
+                        <div class="difficulty-description">
+                            <div class="difficulty-leagues">{{index .DifficultyInfo "moyen" "leagues"}}</div>
+                        </div>
+                    </div>
+
+                    <!-- Difficile Button and Description -->
+                    <div class="difficulty-option">
+                        <button class="home-button difficulty-game-button" onclick="startGameDifficulty('difficile')">
+                            Prodle Difficile
+                        </button>
+                        <div class="difficulty-description">
+                            <div class="difficulty-leagues">{{index .DifficultyInfo "difficile" "leagues"}}</div>
+                        </div>
                     </div>
                 {{end}}
+            </div>
+            
+            <!-- Leaderboard Section with Tabs -->
+            <div class="home-leaderboard">
+                <h2>Classement</h2>
+                
+                <div class="leaderboard-tabs">
+                    <button class="tab-button active" onclick="switchTab('facile')">Facile</button>
+                    <button class="tab-button" onclick="switchTab('moyen')">Moyen</button>
+                    <button class="tab-button" onclick="switchTab('difficile')">Difficile</button>
+                </div>
+
+                <!-- Facile Leaderboard -->
+                <div id="facile-tab" class="tab-content active">
+                    {{if .FacileLeaderboard}}
+                        {{range .FacileLeaderboard}}
+                        <div class="home-leaderboard-entry">
+                            <span class="home-rank">#{{.Rank}}</span>
+                            <span class="home-username">{{.Username}}</span>
+                            <span class="home-score">{{.Score}} pts</span>
+                        </div>
+                        {{end}}
+                    {{else}}
+                        <div class="home-empty">
+                            Aucun score enregistré pour le moment
+                        </div>
+                    {{end}}
+                </div>
+
+                <!-- Moyen Leaderboard -->
+                <div id="moyen-tab" class="tab-content">
+                    {{if .MoyenLeaderboard}}
+                        {{range .MoyenLeaderboard}}
+                        <div class="home-leaderboard-entry">
+                            <span class="home-rank">#{{.Rank}}</span>
+                            <span class="home-username">{{.Username}}</span>
+                            <span class="home-score">{{.Score}} pts</span>
+                        </div>
+                        {{end}}
+                    {{else}}
+                        <div class="home-empty">
+                            Aucun score enregistré pour le moment
+                        </div>
+                    {{end}}
+                </div>
+
+                <!-- Difficile Leaderboard -->
+                <div id="difficile-tab" class="tab-content">
+                    {{if .DifficileLeaderboard}}
+                        {{range .DifficileLeaderboard}}
+                        <div class="home-leaderboard-entry">
+                            <span class="home-rank">#{{.Rank}}</span>
+                            <span class="home-username">{{.Username}}</span>
+                            <span class="home-score">{{.Score}} pts</span>
+                        </div>
+                        {{end}}
+                    {{else}}
+                        <div class="home-empty">
+                            Aucun score enregistré pour le moment
+                        </div>
+                    {{end}}
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        async function startGame() {
-            try {
-                const response = await fetch('/api/start-game', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Store session ID and redirect to game
-                    sessionStorage.setItem('sessionId', data.sessionId);
-                    window.location.href = '/game';
-                } else {
-                    alert('Erreur lors du démarrage du jeu: ' + (data.message || 'Erreur inconnue'));
-                }
-            } catch (error) {
-                console.error('Error starting game:', error);
-                alert('Erreur de connexion au serveur');
-            }
+        function switchTab(difficulty) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${difficulty}-tab`).classList.add('active');
+        }
+
+        function startGameDifficulty(difficulty) {
+            // Clear any existing session data
+            sessionStorage.removeItem('sessionId');
+            
+            // Redirect to game page with difficulty parameter
+            window.location.href = '/game?difficulty=' + difficulty;
         }
     </script>
 </body>

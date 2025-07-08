@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 var templates *template.Template
@@ -20,7 +21,6 @@ func init() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	// Parse HTML templates
 	var err error
 	templates, err = template.ParseGlob("templates/*.html")
 	if err != nil {
@@ -61,16 +61,36 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	leaderboard, err := GetFormattedTop10()
+	facileLeaderboard, err := GetFormattedLeaderboardByDifficulty(10, "facile")
 	if err != nil {
-		log.Printf("Error getting leaderboard: %v", err)
-		leaderboard = []FormattedLeaderboardEntry{}
+		log.Printf("Error getting facile leaderboard: %v", err)
+		facileLeaderboard = []FormattedLeaderboardEntry{}
 	}
 
+	moyenLeaderboard, err := GetFormattedLeaderboardByDifficulty(10, "moyen")
+	if err != nil {
+		log.Printf("Error getting moyen leaderboard: %v", err)
+		moyenLeaderboard = []FormattedLeaderboardEntry{}
+	}
+
+	difficileLeaderboard, err := GetFormattedLeaderboardByDifficulty(10, "difficile")
+	if err != nil {
+		log.Printf("Error getting difficile leaderboard: %v", err)
+		difficileLeaderboard = []FormattedLeaderboardEntry{}
+	}
+
+	difficultyInfo := GetDifficultyInfo()
+
 	data := struct {
-		Leaderboard []FormattedLeaderboardEntry
+		FacileLeaderboard    []FormattedLeaderboardEntry
+		MoyenLeaderboard     []FormattedLeaderboardEntry
+		DifficileLeaderboard []FormattedLeaderboardEntry
+		DifficultyInfo       map[string]map[string]interface{}
 	}{
-		Leaderboard: leaderboard,
+		FacileLeaderboard:    facileLeaderboard,
+		MoyenLeaderboard:     moyenLeaderboard,
+		DifficileLeaderboard: difficileLeaderboard,
+		DifficultyInfo:       difficultyInfo,
 	}
 
 	err = templates.ExecuteTemplate(w, "index.html", data)
@@ -81,7 +101,24 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func gameHandler(w http.ResponseWriter, r *http.Request) {
-	err := templates.ExecuteTemplate(w, "game.html", nil)
+	// Get difficulty from URL parameter
+	difficulty := r.URL.Query().Get("difficulty")
+	if difficulty == "" {
+		difficulty = "difficile" // Default fallback
+	}
+
+	// Get difficulty info to pass to template
+	difficultyInfo := GetDifficultyInfo()
+
+	data := struct {
+		Difficulty     string
+		DifficultyInfo map[string]map[string]interface{}
+	}{
+		Difficulty:     difficulty,
+		DifficultyInfo: difficultyInfo,
+	}
+
+	err := templates.ExecuteTemplate(w, "game.html", data)
 	if err != nil {
 		http.Error(w, "Error rendering template", http.StatusInternalServerError)
 		log.Printf("Template error: %v", err)
@@ -122,6 +159,11 @@ type SubmitScoreRequest struct {
 type SubmitScoreResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message,omitempty"`
+	Rank    int    `json:"rank,omitempty"`
+}
+
+type StartGameRequest struct {
+	Difficulty string `json:"difficulty"`
 }
 
 func startGameHandler(w http.ResponseWriter, r *http.Request) {
@@ -132,13 +174,36 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	session, err := CreateNewSession()
+	log.Printf("Request content length: %d", r.ContentLength)
+	log.Printf("Request content type: %s", r.Header.Get("Content-Type"))
+
+	var req StartGameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding request body: %v", err)
+		response := StartGameResponse{
+			Success: false,
+			Message: "Invalid request format",
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	log.Printf("Decoded request: %+v", req)
+
+	difficulty := req.Difficulty
+	if difficulty == "" {
+		difficulty = "difficile"
+	}
+
+	session, err := CreateNewSessionWithDifficulty(difficulty)
 	if err != nil {
-		log.Printf("Error creating session: %v", err)
+		log.Printf("Error creating session with difficulty %s: %v", difficulty, err)
 		response := StartGameResponse{
 			Success: false,
 			Message: "Failed to create game session",
 		}
+		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(response)
 		return
 	}
@@ -148,6 +213,7 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 		Success:   true,
 	}
 
+	log.Printf("Sending successful response for session %s", session.SessionID)
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -201,22 +267,28 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if guess is correct BEFORE processing
 	isCorrect := session.CheckCorrectGuess(req.PlayerName)
 
 	result, err := ValidateGuess(session, req.PlayerName)
 	if err != nil {
 		log.Printf("Error validating guess: %v", err)
+
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "player not found:") {
+			errorMsg = "Ce joueur n'est pas reconnu"
+		} else if strings.Contains(errorMsg, "player not in difficulty:") {
+			errorMsg = "Ce joueur n'est pas dans cette difficulté"
+		}
+
 		response := GuessResponse{
 			Success: false,
-			Message: err.Error(),
+			Message: errorMsg,
 		}
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Get updated session state after processing the guess
 	timeLeft := GetTimeRemaining(session)
 
 	response := GuessResponse{
@@ -241,8 +313,9 @@ func autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	query := r.URL.Query().Get("query")
+	sessionID := r.URL.Query().Get("sessionId")
+
 	if query == "" {
-		// Return empty array if no query provided
 		response := AutocompleteResponse{
 			Players: []string{},
 		}
@@ -250,19 +323,28 @@ func autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get all player names if query is too short, otherwise filter
+	difficulty := "difficile"
+	if sessionID != "" {
+		if session, exists := GetSession(sessionID); exists {
+			difficulty = session.Difficulty
+			log.Printf("Autocomplete using session %s with difficulty %s", sessionID, difficulty)
+		} else {
+			log.Printf("Autocomplete: session %s not found, using default difficulty", sessionID)
+		}
+	} else {
+		log.Printf("Autocomplete: no session ID provided, using default difficulty")
+	}
+
 	var players []string
 	if len(strings.TrimSpace(query)) < 2 {
-		// For very short queries, return first 50 names to avoid overwhelming the UI
-		allNames := GetAllPlayerNames()
+		allNames := FilterPlayersByNameAndDifficulty("", difficulty, 50)
 		if len(allNames) > 50 {
 			players = allNames[:50]
 		} else {
 			players = allNames
 		}
 	} else {
-		// Filter by query with a reasonable limit
-		players = FilterPlayersByName(query, 50)
+		players = FilterPlayersByNameAndDifficulty(query, difficulty, 50)
 	}
 
 	if players == nil {
@@ -305,7 +387,6 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate and sanitize username
 	username := SanitizeInput(req.Username)
 	if len(username) == 0 || len(username) > 50 {
 		response := SubmitScoreResponse{
@@ -317,7 +398,6 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get session
 	session, exists := GetSession(req.SessionID)
 	if !exists {
 		response := SubmitScoreResponse{
@@ -329,7 +409,6 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate session is completed or game over
 	if !session.IsCompleted && !session.IsGameOver() {
 		response := SubmitScoreResponse{
 			Success: false,
@@ -340,14 +419,12 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate final score if not already done
 	finalScore := session.Score
 	if !session.IsCompleted {
 		finalScore = session.CalculateFinalScore()
 	}
 
-	// Submit score to leaderboard
-	err := AddToLeaderboardFromSession(username, session)
+	err := SubmitScoreByDifficulty(username, session, session.Difficulty)
 	if err != nil {
 		log.Printf("Error adding score to leaderboard: %v", err)
 		response := SubmitScoreResponse{
@@ -359,11 +436,27 @@ func submitScoreHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Score submitted for user %s: %d points (session %s)", username, finalScore, req.SessionID)
+	// Calculate player rank after submission
+	var totalDuration int
+	if session.CompletionTime != nil {
+		totalDuration = int(session.CompletionTime.Sub(session.StartTime).Seconds())
+	} else {
+		totalDuration = int(time.Since(session.StartTime).Seconds())
+	}
+
+	rank, err := GetPlayerRankByDifficulty(finalScore, totalDuration, session.Difficulty)
+	if err != nil {
+		log.Printf("Error calculating rank: %v", err)
+		// Continue without rank if there's an error
+		rank = 0
+	}
+
+	log.Printf("Score submitted for user %s: %d points (rank #%d) (session %s)", username, finalScore, rank, req.SessionID)
 
 	response := SubmitScoreResponse{
 		Success: true,
 		Message: "Score submitted successfully",
+		Rank:    rank,
 	}
 
 	json.NewEncoder(w).Encode(response)
@@ -407,7 +500,6 @@ func endGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get session
 	session, exists := GetSession(req.SessionID)
 	if !exists {
 		response := EndGameResponse{
@@ -419,7 +511,6 @@ func endGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Mark session as completed if not already
 	if !session.IsCompleted {
 		session.CompleteSession()
 		UpdateSession(session)
@@ -449,7 +540,6 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method == "GET" {
-		// Return current configuration
 		config := &GameConfig{
 			TotalGameTimeSeconds: TotalGameTime,
 			PlayersPerSession:    PlayersPerSession,
@@ -464,7 +554,6 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For now, only support GET
 	response := ConfigResponse{
 		Success: false,
 		Message: "Only GET method is supported for configuration",
