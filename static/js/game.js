@@ -9,6 +9,7 @@ class GameManager {
         this.currentTargetPlayer = null;
         this.playersFound = 0;
         this.isTransitioning = false;
+        this.missedPlayer = null;
         
         this.guessInput = document.getElementById('guess-input');
         this.guessButton = document.getElementById('guess-button');
@@ -27,6 +28,8 @@ class GameManager {
         this.scoreSubmitted = document.getElementById('score-submitted');
         this.submitScoreBtn = document.getElementById('submit-score-btn');
         this.playerRankElement = document.getElementById('player-rank');
+        this.missedPlayerInfo = document.getElementById('missed-player-info');
+        this.missedPlayerName = document.getElementById('missed-player-name');
         
         this.selectedIndex = -1;
         this.autocompleteResults = [];
@@ -908,6 +911,8 @@ class GameManager {
 
             const data = await response.json();
             if (data.success) {
+                // Store missed player data if provided
+                this.missedPlayer = data.missed_player || null;
             } else {
                 console.error('Failed to mark game as completed:', data.message);
             }
@@ -929,6 +934,14 @@ class GameManager {
         
         if (this.playersCompletedElement) {
             this.playersCompletedElement.textContent = `Joueurs Trouvés: ${this.playersFound}/${this.totalPlayers}`;
+        }
+        
+        // Display missed player if available
+        if (this.missedPlayer && this.missedPlayerInfo && this.missedPlayerName) {
+            this.missedPlayerName.textContent = this.missedPlayer.ID;
+            this.missedPlayerInfo.classList.remove('hidden');
+        } else if (this.missedPlayerInfo) {
+            this.missedPlayerInfo.classList.add('hidden');
         }
         
         

@@ -456,8 +456,9 @@ type EndGameRequest struct {
 }
 
 type EndGameResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
+	Success      bool    `json:"success"`
+	Message      string  `json:"message,omitempty"`
+	MissedPlayer *Player `json:"missed_player,omitempty"`
 }
 
 func endGameHandler(w http.ResponseWriter, r *http.Request) {
@@ -505,9 +506,17 @@ func endGameHandler(w http.ResponseWriter, r *http.Request) {
 		UpdateSession(session)
 	}
 
+	// Get the current target player that was missed (if any)
+	var missedPlayer *Player
+	if session.CurrentPlayerIndex < len(session.SelectedPlayers) {
+		currentPlayer := session.SelectedPlayers[session.CurrentPlayerIndex]
+		missedPlayer = &currentPlayer
+	}
+
 	response := EndGameResponse{
-		Success: true,
-		Message: "Game session ended successfully",
+		Success:      true,
+		Message:      "Game session ended successfully",
+		MissedPlayer: missedPlayer,
 	}
 
 	json.NewEncoder(w).Encode(response)

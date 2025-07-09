@@ -18,6 +18,7 @@
     --text-white: #FFFFFF;
     --text-gray: #A0AEC0;
     --gold: #D69E2E;
+    --primary-orange: #FF6B35;
     --input-bg: #2D3748;
     --input-border: #4A5568;
     
@@ -506,6 +507,30 @@ body {
     border: 1px solid var(--gold);
     border-radius: var(--border-radius);
     animation: slideIn 0.5s ease;
+}
+
+/* ============= MISSED PLAYER DISPLAY ============= */
+.missed-player-info {
+    text-align: center;
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(255, 107, 53, 0.1);
+    border: 1px solid var(--primary-orange);
+    border-radius: var(--border-radius);
+    animation: slideIn 0.5s ease;
+}
+
+.missed-player-label {
+    color: var(--text-gray);
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.missed-player-name {
+    color: var(--primary-orange);
+    font-size: 18px;
+    font-weight: 600;
 }
 
 /* ============= CURRENT PLAYER REVEAL ============= */
