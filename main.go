@@ -33,6 +33,11 @@ func main() {
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+	http.HandleFunc("/riot.txt", func(w http.ResponseWriter, r *http.Request) {
+		riotCode := os.Getenv("RIOT_VERIFICATION_CODE")
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(riotCode))
+	})
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/game", gameHandler)
